@@ -24,6 +24,8 @@ export interface NavItem {
   label: string
   /** Lower numbers come first. */
   order?: number
+  /** Shown at the bottom of the side column, below the modules' parts, instead of at its top. */
+  bottom?: boolean
 }
 
 /** Everything a feature module plugs into the app. */

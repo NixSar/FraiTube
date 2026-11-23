@@ -3,12 +3,14 @@ import { computed } from 'vue'
 import { continueWatching, timeLeftText, videoThumbnail, watchedPercent, type HistoryEntry } from '../../../shared/history'
 import VideoMenu from '../../components/VideoMenu.vue'
 import { playInNewWindowItem, type VideoMenuItem } from '../../components/videoMenu'
+import { useFavoriteMenuItem } from '../favorites/store'
 import { useHistoryEntries, useWatchedMenuItem } from './progress'
 
 /** The side column's list of videos last stopped partway, each opening where it stopped. */
 const entries = useHistoryEntries()
 const videos = computed(() => continueWatching(entries.value.values()))
 const { watchedItem } = useWatchedMenuItem()
+const { favoriteItem } = useFavoriteMenuItem()
 
 /** Each video's menu, so right-clicking or long-pressing its row opens it. */
 const menus = new Map<string, InstanceType<typeof VideoMenu>>()
@@ -22,7 +24,7 @@ function setMenu(videoId: string, menu: unknown): void {
 }
 
 function menuItems(video: HistoryEntry): VideoMenuItem[] {
-  return [playInNewWindowItem(video.videoId), watchedItem(video)]
+  return [playInNewWindowItem(video.videoId), watchedItem(video), favoriteItem(video)]
 }
 </script>
 
@@ -33,50 +35,62 @@ function menuItems(video: HistoryEntry): VideoMenuItem[] {
     aria-label="Continue watching"
   >
     <h2>Continue watching</h2>
-    <div
-      v-for="video in videos"
-      :key="video.videoId"
-      class="row"
-      @contextmenu="menus.get(video.videoId)?.openAt($event)"
-    >
-      <RouterLink
-        class="item"
-        :to="{ name: 'watch', params: { videoId: video.videoId } }"
-        :title="video.title"
+    <div class="rows">
+      <div
+        v-for="video in videos"
+        :key="video.videoId"
+        class="row"
+        @contextmenu="menus.get(video.videoId)?.openAt($event)"
       >
-        <span class="picture">
-          <img
-            :src="videoThumbnail(video.videoId)"
-            alt=""
-            loading="lazy"
-            decoding="async"
-          >
-          <span
-            class="watched"
-            :style="{ width: `${watchedPercent(video)}%` }"
-          />
-        </span>
-        <span class="text">
-          <span class="title">{{ video.title }}</span>
-          <span class="left">{{ timeLeftText(video) }}</span>
-        </span>
-      </RouterLink>
-      <VideoMenu
-        :ref="(menu) => setMenu(video.videoId, menu)"
-        :items="menuItems(video)"
-      />
+        <RouterLink
+          class="item"
+          :to="{ name: 'watch', params: { videoId: video.videoId } }"
+          :title="video.title"
+        >
+          <span class="picture">
+            <img
+              :src="videoThumbnail(video.videoId)"
+              alt=""
+              loading="lazy"
+              decoding="async"
+            >
+            <span
+              class="watched"
+              :style="{ width: `${watchedPercent(video)}%` }"
+            />
+          </span>
+          <span class="text">
+            <span class="title">{{ video.title }}</span>
+            <span class="left">{{ timeLeftText(video) }}</span>
+          </span>
+        </RouterLink>
+        <VideoMenu
+          :ref="(menu) => setMenu(video.videoId, menu)"
+          :items="menuItems(video)"
+        />
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+/* Lined above and below; the heading stays while the videos scroll when they do not all fit. */
 .continue {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-block-size: 0;
   margin-block-start: 12px;
-  padding-block-start: 8px;
-  border-block-start: 1px solid var(--color-border);
+  padding-block: 8px;
+  border-block: 1px solid var(--color-border);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-block-size: 0;
+  overflow-y: auto;
 }
 
 h2 {

@@ -12,6 +12,7 @@ import type {
 } from '@fraitube/youtube/types'
 import type { Segment } from '@fraitube/sponsorblock/types'
 import type { BackupStatus } from './backupSettings'
+import type { Favorite } from './favorites'
 import type { HistoryEntry, HistoryImportSummary, HistoryVideo } from './history'
 import type { HandOver } from './pip'
 import type { RcloneRemotes, SyncStatus } from './syncSettings'
@@ -48,6 +49,12 @@ export const IpcChannel = {
   importHistory: 'history:import',
   historyChanged: 'history:changed',
   historyPositionSaved: 'history:position-saved',
+  listFavorites: 'favorites:list',
+  addFavorite: 'favorites:add',
+  removeFavorite: 'favorites:remove',
+  favoritesChanged: 'favorites:changed',
+  appInfo: 'app:info',
+  openDataFolder: 'app:open-data-folder',
   sponsorSegments: 'sponsorblock:segments',
   pausePlayback: 'player:pause',
   openPip: 'pip:open',
@@ -153,6 +160,17 @@ export interface FraiTubeBridge {
   onHistoryChanged(listener: () => void): () => void
   /** Calls the listener whenever a video's position is saved in any window. Returns a function that stops listening. */
   onHistoryPositionSaved(listener: (videoId: string, positionSeconds: number) => void): () => void
+  /** Every favorite video, the last added first. */
+  listFavorites(): Promise<Favorite[]>
+  /** Adds a video to the favorites; every open window then hears of the change. */
+  addFavorite(video: HistoryVideo): Promise<void>
+  removeFavorite(videoId: string): Promise<void>
+  /** Calls the listener whenever the favorites change in any window. Returns a function that stops listening. */
+  onFavoritesChanged(listener: () => void): () => void
+  /** The app's version and the folder where this computer's data is kept. */
+  getAppInfo(): Promise<{ version: string; dataFolder: string }>
+  /** Opens the data folder in the system's file manager. */
+  openDataFolder(): void
   /** The SponsorBlock segments of a video. Empty while SponsorBlock is off, and then nothing is requested. */
   getSponsorSegments(videoId: string): Promise<Segment[]>
   /** Calls the listener when a video went into the PiP window, so this window's video pauses. Returns a function that stops listening. */

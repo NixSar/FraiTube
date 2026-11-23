@@ -6,12 +6,15 @@ import { syncSchema } from '@fraitube/sync'
 import { IpcChannel, isAppPath } from '../shared/bridge'
 import { staysOnPage } from '../shared/navigation'
 import { allSettingDefinitions, SettingKey } from '../shared/settings'
+import { fromAppWindow } from './appWindow'
 import { registerBackupHandlers } from './backup'
 import { registerNetworkHandlers } from './net'
 import { closePipWithoutAppWindows, registerPipHandlers } from './pip'
 import { registerSettingsHandlers } from './settings'
 import { createSettingsStore, settingsSchema, type SettingsStore } from './settingsStore'
 import { createFeedCacheFile, createFeedService } from './feed'
+import { registerFavoritesHandlers } from './favorites'
+import { createFavoritesStore, favoritesSchema } from './favoritesStore'
 import { registerHistoryHandlers } from './history'
 import { createHistoryStore, historySchema } from './historyStore'
 import { registerSponsorBlockHandlers } from './sponsorBlock'
@@ -25,7 +28,7 @@ import appIcon from '../../build/icon.png?asset'
 app.setName('FraiTube')
 
 /** Tables of every installed module, as numbered upgrade steps. */
-const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, syncSchema]
+const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, syncSchema]
 let storage: Storage | undefined
 let settings: SettingsStore | undefined
 let sync: SyncService | undefined
@@ -150,6 +153,20 @@ ipcMain.on(IpcChannel.openWindow, (_event, path: unknown) => {
   }
 })
 
+// For the About page: the version and the data folder, which only opens in the file manager.
+ipcMain.handle(IpcChannel.appInfo, (event) => {
+  if (!fromAppWindow(event)) {
+    throw new Error('Request refused')
+  }
+  return { version: app.getVersion(), dataFolder: app.getPath('userData') }
+})
+
+ipcMain.on(IpcChannel.openDataFolder, (event) => {
+  if (fromAppWindow(event)) {
+    void shell.openPath(app.getPath('userData'))
+  }
+})
+
 void app.whenReady().then(() => {
   Menu.setApplicationMenu(null)
   const databaseFile = join(app.getPath('userData'), 'fraitube.db')
@@ -163,6 +180,7 @@ void app.whenReady().then(() => {
   }, Date.now, announceFeedProgress, createFeedCacheFile(join(app.getPath('userData'), 'feed-cache.json')))
   registerSubscriptionHandlers(createSubscriptionsStore(storage), feed, youtube.getChannelIcon)
   registerHistoryHandlers(createHistoryStore(storage))
+  registerFavoritesHandlers(createFavoritesStore(storage))
   registerSponsorBlockHandlers(settings, app.userAgentFallback)
   registerPipHandlers({ create: createPipWindow, load: loadAppPath, openAppWindow: createWindow })
   createWindow()

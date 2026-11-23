@@ -1,4 +1,5 @@
 import { defineModule } from '@fraitube/app-api'
+import { NAV_ORDER } from '../../sideNav'
 
 export const settingsModule = defineModule({
   id: 'settings',
@@ -10,5 +11,5 @@ export const settingsModule = defineModule({
       component: () => import('./SettingsPage.vue')
     }
   ],
-  nav: [{ route: 'settings', label: 'Settings', order: 1000 }]
+  nav: [{ route: 'settings', label: 'Settings', order: NAV_ORDER.settings, bottom: true }]
 })

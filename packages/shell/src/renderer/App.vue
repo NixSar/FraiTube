@@ -3,6 +3,7 @@ import type { FraiTubeModule, NavItem } from '@fraitube/app-api'
 import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { videoIdFromLink } from '@fraitube/youtube/ids'
+import { splitNav } from './sideNav'
 
 const props = defineProps<{
   nav: NavItem[]
@@ -14,6 +15,7 @@ const props = defineProps<{
 const frameParts = props.frames.map((load) => defineAsyncComponent(load))
 /** The modules' parts of the side column, under the navigation links. */
 const navParts = props.navPanels.map((load) => defineAsyncComponent(load))
+const navGroups = splitNav(props.nav)
 
 const route = useRoute()
 const router = useRouter()
@@ -109,30 +111,43 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
     </header>
 
     <nav class="side-nav">
-      <RouterLink
-        v-for="item in nav"
-        :key="item.route"
-        v-slot="{ href, navigate, isActive }"
-        :to="{ name: item.route }"
-        custom
+      <template
+        v-for="group in navGroups"
+        :key="group.name"
       >
-        <a
-          :href="href"
-          class="nav-link"
-          :class="{ active: isActive }"
-          @click="onLinkClick($event, { name: item.route }, navigate)"
-          @auxclick="onLinkAuxClick($event, { name: item.route })"
+        <div
+          class="nav-group"
+          :class="`nav-${group.name}`"
         >
-          {{ item.label }}
-        </a>
-      </RouterLink>
-      <div class="nav-panels">
-        <component
-          :is="part"
-          v-for="(part, index) in navParts"
-          :key="index"
-        />
-      </div>
+          <RouterLink
+            v-for="item in group.items"
+            :key="item.route"
+            v-slot="{ href, navigate, isActive }"
+            :to="{ name: item.route }"
+            custom
+          >
+            <a
+              :href="href"
+              class="nav-link"
+              :class="{ active: isActive }"
+              @click="onLinkClick($event, { name: item.route }, navigate)"
+              @auxclick="onLinkAuxClick($event, { name: item.route })"
+            >
+              {{ item.label }}
+            </a>
+          </RouterLink>
+        </div>
+        <div
+          v-if="group.name === 'top'"
+          class="nav-panels"
+        >
+          <component
+            :is="part"
+            v-for="(part, index) in navParts"
+            :key="index"
+          />
+        </div>
+      </template>
     </nav>
 
     <main class="content">
@@ -197,6 +212,26 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
   background: var(--color-surface);
   border-inline-end: 1px solid var(--color-border);
   overflow-y: auto;
+}
+
+.nav-group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The space between the top and bottom links; a part taller than it scrolls inside. */
+.nav-panels {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+/* Pushed to the bottom of the side column, below the modules' parts. */
+.nav-bottom {
+  margin-block-start: auto;
+  padding-block-start: 8px;
 }
 
 .nav-link {
@@ -301,6 +336,11 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
     border-inline-end: none;
     border-block-start: 1px solid var(--color-border);
     overflow: hidden;
+  }
+
+  /* Every tab shares the bar, top and bottom ones alike. */
+  .nav-group {
+    display: contents;
   }
 
   .nav-link {

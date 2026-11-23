@@ -1,6 +1,8 @@
 import { defineModule, type FraiTubeModule } from '@fraitube/app-api'
 import { shellSettings } from '../shared/settings'
+import { aboutModule } from './modules/about'
 import { backupModule } from './modules/backup'
+import { favoritesModule } from './modules/favorites'
 import { historyModule } from './modules/history'
 import { searchModule } from './modules/search'
 import { settingsModule } from './modules/settings'
@@ -16,4 +18,4 @@ const shellModule = defineModule({
 })
 
 /** All modules the app loads, in registration order. Their settings must also be listed in shared/settings.ts. */
-export const installedModules: FraiTubeModule[] = [shellModule, searchModule, subscriptionsModule, historyModule, watchModule, sponsorBlockModule, syncModule, backupModule, settingsModule]
+export const installedModules: FraiTubeModule[] = [shellModule, searchModule, subscriptionsModule, favoritesModule, historyModule, watchModule, sponsorBlockModule, syncModule, backupModule, settingsModule, aboutModule]

@@ -108,6 +108,28 @@ const bridge: FraiTubeBridge = {
       ipcRenderer.removeListener(IpcChannel.historyChanged, handler)
     }
   },
+  listFavorites() {
+    return ipcRenderer.invoke(IpcChannel.listFavorites)
+  },
+  addFavorite(video) {
+    return ipcRenderer.invoke(IpcChannel.addFavorite, video)
+  },
+  removeFavorite(videoId) {
+    return ipcRenderer.invoke(IpcChannel.removeFavorite, videoId)
+  },
+  onFavoritesChanged(listener) {
+    const handler = (): void => listener()
+    ipcRenderer.on(IpcChannel.favoritesChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcChannel.favoritesChanged, handler)
+    }
+  },
+  getAppInfo() {
+    return ipcRenderer.invoke(IpcChannel.appInfo)
+  },
+  openDataFolder() {
+    ipcRenderer.send(IpcChannel.openDataFolder)
+  },
   onHistoryPositionSaved(listener) {
     const handler = (_event: IpcRendererEvent, videoId: string, positionSeconds: number): void => listener(videoId, positionSeconds)
     ipcRenderer.on(IpcChannel.historyPositionSaved, handler)

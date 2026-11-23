@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { timeAgo } from '@fraitube/subscriptions'
-import type { Feed } from '@fraitube/subscriptions/types'
+import type { Feed, FeedVideo } from '@fraitube/subscriptions/types'
 import type { FeedProgress } from '../../../shared/bridge'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
 import { usePaging } from '../../components/paging'
-import { playInNewWindowItem } from '../../components/videoMenu'
+import { playInNewWindowItem, type VideoMenuItem } from '../../components/videoMenu'
+import { useFavoriteMenuItem } from '../favorites/store'
 import { useWatchedMenuItem, useWatchProgress } from '../history/progress'
 import FeedLoading from './FeedLoading.vue'
 import { feedLoadingView } from './feedLoading'
@@ -28,6 +29,13 @@ const now = ref(Date.now())
 const loadId = ref(0)
 const { progressOf } = useWatchProgress()
 const { watchedItem } = useWatchedMenuItem()
+const { favoriteItem } = useFavoriteMenuItem()
+
+/** A feed video's menu; its length is unknown here, so it is saved as 0. */
+function menuItems(video: FeedVideo): VideoMenuItem[] {
+  const details = { videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 }
+  return [playInNewWindowItem(video.id), watchedItem(details), favoriteItem(details)]
+}
 const { shown, hasMore, showMore } = usePaging(() => feed.value?.videos ?? [], () => loadId.value)
 const loadingView = computed(() => feedLoadingView(subscriptions.value, fetching.value))
 
@@ -159,7 +167,7 @@ onBeforeUnmount(() => {
           :channel-id="video.channelId"
           :channel-name="video.channelName"
           :details="[video.viewsText, timeAgo(video.publishedAt, now)]"
-          :menu-items="[playInNewWindowItem(video.id), watchedItem({ videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 })]"
+          :menu-items="menuItems(video)"
         />
       </li>
     </VideoGrid>

@@ -1,4 +1,5 @@
 import { defineModule } from '@fraitube/app-api'
+import { NAV_ORDER } from '../../sideNav'
 
 export const subscriptionsModule = defineModule({
   id: 'subscriptions',
@@ -17,7 +18,7 @@ export const subscriptionsModule = defineModule({
     }
   ],
   nav: [
-    { route: 'subscriptions', label: 'Subscriptions', order: 10 },
-    { route: 'channels', label: 'Channels', order: 20 }
+    { route: 'subscriptions', label: 'Subscriptions', order: NAV_ORDER.subscriptions },
+    { route: 'channels', label: 'Channels', order: NAV_ORDER.channels, bottom: true }
   ]
 })

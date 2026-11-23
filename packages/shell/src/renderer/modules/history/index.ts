@@ -1,4 +1,5 @@
 import { defineModule } from '@fraitube/app-api'
+import { NAV_ORDER } from '../../sideNav'
 import { historySettings } from '../../../shared/history'
 
 export const historyModule = defineModule({
@@ -11,7 +12,7 @@ export const historyModule = defineModule({
       component: () => import('./HistoryPage.vue')
     }
   ],
-  nav: [{ route: 'history', label: 'History', order: 30 }],
+  nav: [{ route: 'history', label: 'History', order: NAV_ORDER.history }],
   settings: historySettings,
   navPanel: () => import('./ContinueWatching.vue')
 })

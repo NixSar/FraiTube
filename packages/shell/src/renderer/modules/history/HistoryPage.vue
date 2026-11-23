@@ -8,9 +8,11 @@ import VideoGrid from '../../components/VideoGrid.vue'
 import { playInNewWindowItem } from '../../components/videoMenu'
 import ConfirmClearDialog from '../../components/ConfirmClearDialog.vue'
 import { historyClearWarning } from './clearHistory'
+import { useFavoriteMenuItem } from '../favorites/store'
 import { useWatchedMenuItem } from './progress'
 
 const { watchedItem } = useWatchedMenuItem()
+const { favoriteItem } = useFavoriteMenuItem()
 const entries = ref<HistoryEntry[]>([])
 const loaded = ref(false)
 const error = ref('')
@@ -158,7 +160,7 @@ void reload()
           :channel-name="entry.channelName"
           :channel-avatar="entry.channelAvatar"
           :details="[`Watched ${timeAgo(entry.watchedAt, now)}`]"
-          :menu-items="[playInNewWindowItem(entry.videoId), watchedItem(entry)]"
+          :menu-items="[playInNewWindowItem(entry.videoId), watchedItem(entry), favoriteItem(entry)]"
         >
           <template #actions>
             <button
