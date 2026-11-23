@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0 - 2026-11-23
+
+- Favorites: add a video from its ⋮ menu and find it on the Favorites page.
+- A ⋮ menu on every video: play in a new window, mark as watched or unwatched, add to favorites.
+- Videos are marked as watched once they play to their end.
+- New videos shows the last loaded videos at once while it checks for more.
+- An About page with the version, license, links, data folder and the projects FraiTube is built on.
+- Reload and Share on the watch page, and a clear message when YouTube refuses subtitles.
+- A setting to move the video to picture-in-picture when leaving its page.
+- Clear buttons ask before clearing.
+- Icons in the side column, a one-row player bar with a subtitles menu, and layouts that fit narrow windows.
+- The side column has New videos for the video feed and Subscriptions for the channel list.
+- Starting FraiTube while it runs opens a new window in the running app.
+
 ## 0.8.0 - 2026-11-23
 
 The first version.
