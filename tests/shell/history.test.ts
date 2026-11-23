@@ -10,8 +10,10 @@ import {
   isHistoryEntry,
   isHistoryVideo,
   isPlayed,
+  isWatched,
   positionToSave,
   resumeSeconds,
+  watchedAction,
   watchedPercent,
   watchProgress
 } from '../../packages/shell/src/shared/history'
@@ -37,6 +39,15 @@ describe('entryWithPosition', () => {
     expect(entryWithPosition(undefined, 1200)).toBeUndefined()
     expect(entryWithPosition(entry, 30)).toBeUndefined()
   })
+
+  it('marks a video as watched once its position reaches the end, also after it was marked unwatched', () => {
+    expect(entryWithPosition(entry, 2205)?.watched).toBe(true)
+    expect(entryWithPosition({ ...entry, watched: false }, 2205)?.watched).toBe(true)
+  })
+
+  it('keeps a watched video watched when it starts over', () => {
+    expect(entryWithPosition({ ...entry, positionSeconds: 2205, watched: true }, 0)).toEqual({ ...entry, positionSeconds: 0, watched: true })
+  })
 })
 
 describe('continue watching', () => {
@@ -52,23 +63,27 @@ describe('continue watching', () => {
       entry('ddddddddddd', 4, 2205),
       entry('eeeeeeeeeee', 5, 0)
     ]
-    // c is under 2%, d was watched to its end, e was never played.
+    // c is under 1%, d was watched to its end, e was never played.
     expect(continueWatching(entries).map((item) => item.videoId)).toEqual(['bbbbbbbbbbb', 'aaaaaaaaaaa'])
   })
 
-  it('leaves out removed videos, and the next one takes their place', () => {
-    const entries = Array.from({ length: 11 }, (_, index) => entry(`video${String(index).padStart(6, '0')}`, index, 600))
-    const removed = entries.map((item) => (item.videoId === 'video000010' ? { ...item, hiddenFromContinueWatching: true } : item))
-    const shown = continueWatching(removed).map((item) => item.videoId)
-    expect(shown).toHaveLength(10)
-    expect(shown).not.toContain('video000010')
-    expect(shown[0]).toBe('video000009')
-    expect(shown[9]).toBe('video000000')
+  it('lists a video saved as removed from Continue watching while it is in progress', () => {
+    const saved = { ...entry('aaaaaaaaaaa', 1, 600), hiddenFromContinueWatching: true }
+    expect(continueWatching([saved])).toHaveLength(1)
   })
 
-  it('accepts entries marked as removed from Continue watching, and refuses a bad mark', () => {
-    expect(isHistoryEntry({ ...entry('aaaaaaaaaaa', 1, 600), hiddenFromContinueWatching: true })).toBe(true)
-    expect(isHistoryEntry({ ...entry('aaaaaaaaaaa', 1, 600), hiddenFromContinueWatching: 'yes' })).toBe(false)
+  it('leaves out watched videos stopped partway, and lists them again once marked unwatched', () => {
+    const entries = [
+      entry('aaaaaaaaaaa', 1, 600),
+      { ...entry('bbbbbbbbbbb', 2, 600), watched: true },
+      { ...entry('ccccccccccc', 3, 600), watched: false }
+    ]
+    expect(continueWatching(entries).map((item) => item.videoId)).toEqual(['ccccccccccc', 'aaaaaaaaaaa'])
+  })
+
+  it('accepts entries marked as watched, and refuses a bad mark', () => {
+    expect(isHistoryEntry({ ...entry('aaaaaaaaaaa', 1, 600), watched: true })).toBe(true)
+    expect(isHistoryEntry({ ...entry('aaaaaaaaaaa', 1, 600), watched: 'yes' })).toBe(false)
   })
 
   it('shows at most 10 videos', () => {
@@ -122,23 +137,61 @@ describe('positionToSave', () => {
 })
 
 describe('isPlayed', () => {
-  it('counts a video as played past 2% of its length', () => {
-    expect(isPlayed({ positionSeconds: 44, durationSeconds: 2200 })).toBe(false)
-    expect(isPlayed({ positionSeconds: 45, durationSeconds: 2200 })).toBe(true)
+  it('counts a video as played past 1% of its length', () => {
+    expect(isPlayed({ positionSeconds: 22, durationSeconds: 2200 })).toBe(false)
+    expect(isPlayed({ positionSeconds: 23, durationSeconds: 2200 })).toBe(true)
     expect(isPlayed({ positionSeconds: 10, durationSeconds: 0 })).toBe(false)
+  })
+})
+
+describe('isWatched', () => {
+  it('follows the mark, whatever the position', () => {
+    expect(isWatched({ positionSeconds: 0, durationSeconds: 0, watched: true })).toBe(true)
+    expect(isWatched({ positionSeconds: 10, durationSeconds: 2205, watched: true })).toBe(true)
+    expect(isWatched({ positionSeconds: 2205, durationSeconds: 2205, watched: false })).toBe(false)
+  })
+
+  it('counts an entry without a mark as watched when it played to its end', () => {
+    expect(isWatched({ positionSeconds: 2205, durationSeconds: 2205 })).toBe(true)
+    expect(isWatched({ positionSeconds: 2000, durationSeconds: 2205 })).toBe(false)
+    expect(isWatched({ positionSeconds: 0, durationSeconds: 0 })).toBe(false)
+  })
+})
+
+describe('watchedAction', () => {
+  const entry = { ...video, watchedAt: 1, channelAvatar: '' }
+
+  it('offers marking as watched for a video not in the history or partly watched', () => {
+    expect(watchedAction(undefined)).toBe('markWatched')
+    expect(watchedAction({ ...entry, positionSeconds: 600 })).toBe('markWatched')
+  })
+
+  it('offers marking as unwatched once a video is watched', () => {
+    expect(watchedAction({ ...entry, positionSeconds: 2205 })).toBe('markUnwatched')
+    expect(watchedAction({ ...entry, positionSeconds: 0, watched: true })).toBe('markUnwatched')
+  })
+
+  it('offers marking as watched again once a video was marked unwatched', () => {
+    expect(watchedAction({ ...entry, positionSeconds: 2205, watched: false })).toBe('markWatched')
   })
 })
 
 describe('watchProgress', () => {
   it('gives the bar width and a position and length label for a played video', () => {
     expect(watchProgress({ positionSeconds: 754, durationSeconds: 2700 })).toEqual({ percent: (754 / 2700) * 100, label: '12:34 / 45:00' })
-    expect(watchProgress({ positionSeconds: 3723, durationSeconds: 3723 })).toEqual({ percent: 100, label: '1:02:03 / 1:02:03' })
+    expect(watchProgress({ positionSeconds: 3723, durationSeconds: 3723, watched: false })).toEqual({ percent: 100, label: '1:02:03 / 1:02:03' })
   })
 
-  it('gives nothing for a video not played past 2%, unless asked for every saved position', () => {
+  it('gives nothing for a video not played past 1%, unless asked for every saved position', () => {
     expect(watchProgress({ positionSeconds: 10, durationSeconds: 2700 })).toBeUndefined()
     expect(watchProgress({ positionSeconds: 10, durationSeconds: 2700 }, 0)?.label).toBe('0:10 / 45:00')
     expect(watchProgress({ positionSeconds: 0, durationSeconds: 2700 }, 0)).toBeUndefined()
+  })
+
+  it('labels a watched video Watched, with the bar at its saved position', () => {
+    expect(watchProgress({ positionSeconds: 0, durationSeconds: 0, watched: true })).toEqual({ percent: 0, label: 'Watched' })
+    expect(watchProgress({ positionSeconds: 441, durationSeconds: 2205, watched: true })).toEqual({ percent: 20, label: 'Watched' })
+    expect(watchProgress({ positionSeconds: 2205, durationSeconds: 2205 })).toEqual({ percent: 100, label: 'Watched' })
   })
 })
 

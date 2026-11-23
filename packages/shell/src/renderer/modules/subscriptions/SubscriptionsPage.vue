@@ -6,7 +6,8 @@ import type { FeedProgress } from '../../../shared/bridge'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
 import { usePaging } from '../../components/paging'
-import { useWatchProgress } from '../history/progress'
+import { playInNewWindowItem } from '../../components/videoMenu'
+import { useWatchedMenuItem, useWatchProgress } from '../history/progress'
 import FeedLoading from './FeedLoading.vue'
 import { feedLoadingView } from './feedLoading'
 import { useSubscriptions } from './store'
@@ -26,6 +27,7 @@ const error = ref('')
 const now = ref(Date.now())
 const loadId = ref(0)
 const { progressOf } = useWatchProgress()
+const { watchedItem } = useWatchedMenuItem()
 const { shown, hasMore, showMore } = usePaging(() => feed.value?.videos ?? [], () => loadId.value)
 const loadingView = computed(() => feedLoadingView(subscriptions.value, fetching.value))
 
@@ -157,6 +159,7 @@ onBeforeUnmount(() => {
           :channel-id="video.channelId"
           :channel-name="video.channelName"
           :details="[video.viewsText, timeAgo(video.publishedAt, now)]"
+          :menu-items="[playInNewWindowItem(video.id), watchedItem({ videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 })]"
         />
       </li>
     </VideoGrid>

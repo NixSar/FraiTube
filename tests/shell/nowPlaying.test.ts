@@ -41,7 +41,7 @@ afterEach(() => {
 })
 
 describe('leaving the watch page', () => {
-  it('sends a playing video to the PiP window and closes any other', () => {
+  it('sends the video to the PiP window while the PiP setting is on, and closes it while it is off', () => {
     expect(placeAfterLeaving(true)).toBe('pip')
     expect(placeAfterLeaving(false)).toBe('closed')
   })

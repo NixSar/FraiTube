@@ -1,5 +1,13 @@
 import { shallowRef, type ShallowRef } from 'vue'
-import { entryWithPosition, watchProgress, type HistoryEntry, type WatchProgress } from '../../../shared/history'
+import {
+  entryWithPosition,
+  watchedAction,
+  watchProgress,
+  type HistoryEntry,
+  type HistoryVideo,
+  type WatchProgress
+} from '../../../shared/history'
+import type { VideoMenuItem } from '../../components/videoMenu'
 
 /** Saved history entries by video ID, shared by every card in this window and kept current. */
 const entries = shallowRef(new Map<string, HistoryEntry>())
@@ -43,6 +51,20 @@ export function useWatchProgress(): { progressOf: (videoId: string) => WatchProg
     progressOf(videoId) {
       const entry = entries.value.get(videoId)
       return entry ? watchProgress(entry) : undefined
+    }
+  }
+}
+
+/** The menu item that marks a video as watched, or once it is watched, as unwatched. */
+export function useWatchedMenuItem(): { watchedItem: (video: HistoryVideo) => VideoMenuItem } {
+  start()
+  return {
+    watchedItem(video) {
+      // When saving fails, the video simply keeps its state.
+      if (watchedAction(entries.value.get(video.videoId)) === 'markUnwatched') {
+        return { label: 'Mark as unwatched', run: () => void window.fraitube.markUnwatched(video.videoId).catch(() => undefined) }
+      }
+      return { label: 'Mark as watched', run: () => void window.fraitube.markWatched(video).catch(() => undefined) }
     }
   }
 }

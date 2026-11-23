@@ -50,11 +50,19 @@ export function registerHistoryHandlers(store: HistoryStore): void {
     announceChange()
   })
 
-  ipcMain.handle(IpcChannel.hideFromContinueWatching, (event, videoId: unknown) => {
+  ipcMain.handle(IpcChannel.markWatched, (event, video: unknown) => {
+    if (!fromAppWindow(event) || !isHistoryVideo(video)) {
+      throw new Error('Request refused')
+    }
+    store.markWatched(video)
+    announceChange()
+  })
+
+  ipcMain.handle(IpcChannel.markUnwatched, (event, videoId: unknown) => {
     if (!fromAppWindow(event) || !isVideoId(videoId)) {
       throw new Error('Request refused')
     }
-    store.hideFromContinueWatching(videoId)
+    store.markUnwatched(videoId)
     announceChange()
   })
 

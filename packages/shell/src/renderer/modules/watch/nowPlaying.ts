@@ -100,9 +100,12 @@ function shownDetailsId(): string | undefined {
   return details.value?.videoId
 }
 
-/** Leaving the watch page: a playing video goes into the PiP window, any other video closes. */
-export function placeAfterLeaving(playing: boolean): 'pip' | 'closed' {
-  return playing ? 'pip' : 'closed'
+/**
+ * Leaving the watch page: with the PiP setting on, the video goes into the PiP window, playing or
+ * paused as it was; with it off, the video closes.
+ */
+export function placeAfterLeaving(pipOnLeave: boolean): 'pip' | 'closed' {
+  return pipOnLeave ? 'pip' : 'closed'
 }
 
 /**

@@ -54,6 +54,9 @@ const bridge: FraiTubeBridge = {
   unsubscribe(channelId) {
     return ipcRenderer.invoke(IpcChannel.unsubscribe, channelId)
   },
+  clearSubscriptions() {
+    return ipcRenderer.invoke(IpcChannel.clearSubscriptions)
+  },
   importSubscriptions() {
     return ipcRenderer.invoke(IpcChannel.importSubscriptions)
   },
@@ -86,8 +89,11 @@ const bridge: FraiTubeBridge = {
   removeHistory(videoId) {
     return ipcRenderer.invoke(IpcChannel.removeHistory, videoId)
   },
-  hideFromContinueWatching(videoId) {
-    return ipcRenderer.invoke(IpcChannel.hideFromContinueWatching, videoId)
+  markWatched(video) {
+    return ipcRenderer.invoke(IpcChannel.markWatched, video)
+  },
+  markUnwatched(videoId) {
+    return ipcRenderer.invoke(IpcChannel.markUnwatched, videoId)
   },
   clearHistory() {
     return ipcRenderer.invoke(IpcChannel.clearHistory)

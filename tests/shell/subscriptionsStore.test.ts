@@ -65,6 +65,19 @@ describe('createSubscriptionsStore', () => {
     expect(changes[0]).toMatchObject({ key: GAMERS_NEXUS, removed: true })
   })
 
+  it('unsubscribes from every channel when cleared, leaving a removal marker for each', () => {
+    const storage = open()
+    const store = createSubscriptionsStore(storage)
+    store.subscribe(gamersNexus)
+    store.subscribe(hardwareUnboxed)
+    store.subscribe(level1)
+    store.clear()
+    expect(store.list()).toEqual([])
+    const changes = storage.records('subscriptions').changesSince(0)
+    expect(changes).toHaveLength(3)
+    expect(changes.every((change) => change.removed)).toBe(true)
+  })
+
   it('imports only channels not subscribed yet', () => {
     const store = createSubscriptionsStore(open())
     store.subscribe(gamersNexus)

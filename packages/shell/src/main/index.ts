@@ -11,7 +11,7 @@ import { registerNetworkHandlers } from './net'
 import { closePipWithoutAppWindows, registerPipHandlers } from './pip'
 import { registerSettingsHandlers } from './settings'
 import { createSettingsStore, settingsSchema, type SettingsStore } from './settingsStore'
-import { createFeedService } from './feed'
+import { createFeedCacheFile, createFeedService } from './feed'
 import { registerHistoryHandlers } from './history'
 import { createHistoryStore, historySchema } from './historyStore'
 import { registerSponsorBlockHandlers } from './sponsorBlock'
@@ -160,7 +160,7 @@ void app.whenReady().then(() => {
   const feed = createFeedService(async (url) => {
     const response = await youtube.fetch(url)
     return { status: response.status, text: response.status === 200 ? await response.text() : '' }
-  }, Date.now, announceFeedProgress)
+  }, Date.now, announceFeedProgress, createFeedCacheFile(join(app.getPath('userData'), 'feed-cache.json')))
   registerSubscriptionHandlers(createSubscriptionsStore(storage), feed, youtube.getChannelIcon)
   registerHistoryHandlers(createHistoryStore(storage))
   registerSponsorBlockHandlers(settings, app.userAgentFallback)

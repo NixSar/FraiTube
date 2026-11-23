@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { createFeedService, FEED_MAX_AGE_MS, FEED_PROGRESS_INTERVAL_MS, type FetchText } from '../../packages/shell/src/main/feed'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import {
+  createFeedCacheFile,
+  createFeedService,
+  FEED_MAX_AGE_MS,
+  FEED_PROGRESS_INTERVAL_MS,
+  readSavedFeed,
+  type FeedCache,
+  type FetchText,
+  type SavedFeed
+} from '../../packages/shell/src/main/feed'
+import { TEST_DATA_DIR } from '../paths'
 import type { FeedProgress } from '../../packages/shell/src/shared/bridge'
 import { channelFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
 import { GAMERS_NEXUS, HARDWARE_UNBOXED, LEVEL1_TECHS, rssFeed } from '../subscriptions/fixtures'
@@ -61,6 +74,60 @@ describe('createFeedService', () => {
     time = 2 * FEED_MAX_AGE_MS
     await service.get([gamersNexus], false)
     expect(requests).toBe(3)
+  })
+
+  describe('feed kept between starts', () => {
+    function memoryCache(saved?: SavedFeed): FeedCache & { saved: SavedFeed | undefined } {
+      return {
+        saved,
+        load() {
+          return this.saved
+        },
+        save(feed) {
+          this.saved = feed
+        }
+      }
+    }
+
+    it('saves each fetch, with failed channels, and a new service shows it while under an hour old', async () => {
+      const cache = memoryCache()
+      let requests = 0
+      const fetchText: FetchText = async (url) => {
+        requests++
+        return url === videosFeedUrl(GAMERS_NEXUS) ? { status: 200, text: rssFeed } : { status: 500, text: '' }
+      }
+      const first = await createFeedService(fetchText, () => 1000, undefined, cache).get([gamersNexus, level1], false)
+      expect(cache.saved?.fetchedAt).toBe(1000)
+      expect(cache.saved?.channels).toEqual([[GAMERS_NEXUS, expect.any(Array)], [LEVEL1_TECHS, null]])
+
+      requests = 0
+      const restarted = await createFeedService(fetchText, () => 1000 + FEED_MAX_AGE_MS - 1, undefined, cache).get([gamersNexus, level1], false)
+      expect(requests).toBe(0)
+      expect(restarted).toEqual(first)
+    })
+
+    it('fetches again after a restart once the saved feed is an hour old or ahead of the clock', async () => {
+      let requests = 0
+      const fetchText: FetchText = async () => {
+        requests++
+        return { status: 200, text: rssFeed }
+      }
+      const saved: SavedFeed = { fetchedAt: 5000, channels: [[GAMERS_NEXUS, []]] }
+      await createFeedService(fetchText, () => 5000 + FEED_MAX_AGE_MS, undefined, memoryCache(saved)).get([gamersNexus], false)
+      await createFeedService(fetchText, () => 4000, undefined, memoryCache(saved)).get([gamersNexus], false)
+      expect(requests).toBe(2)
+    })
+
+    it('fetches only a channel added since the saved feed, and saves it too', async () => {
+      const requested: string[] = []
+      const cache = memoryCache({ fetchedAt: 0, channels: [[GAMERS_NEXUS, []]] })
+      await createFeedService(async (url) => {
+        requested.push(url)
+        return { status: 200, text: rssFeed }
+      }, () => 10, undefined, cache).get([gamersNexus, level1], false)
+      expect(requested).toEqual([videosFeedUrl(LEVEL1_TECHS)])
+      expect(cache.saved?.channels.map(([id]) => id)).toEqual([GAMERS_NEXUS, LEVEL1_TECHS])
+    })
   })
 
   it('fetches only a new subscription, and nothing when one is removed', async () => {
@@ -129,5 +196,44 @@ describe('createFeedService', () => {
     })
     await Promise.all([service.get([gamersNexus], false), service.get([gamersNexus], false)])
     expect(requests).toBe(1)
+  })
+})
+
+describe('readSavedFeed', () => {
+  const video = { id: 'l8qxFcaLSM4', title: 'HW News', channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus', publishedAt: 1, viewsText: '', thumbnail: '' }
+
+  it('reads a saved feed', () => {
+    const saved: SavedFeed = { fetchedAt: 7, channels: [[GAMERS_NEXUS, [video]], [LEVEL1_TECHS, null]] }
+    expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
+  })
+
+  it('ignores text that is not a saved feed', () => {
+    expect(readSavedFeed('not json')).toBeUndefined()
+    expect(readSavedFeed('null')).toBeUndefined()
+    expect(readSavedFeed(JSON.stringify({ fetchedAt: 'today', channels: [] }))).toBeUndefined()
+    expect(readSavedFeed(JSON.stringify({ fetchedAt: 1, channels: [[GAMERS_NEXUS, [{ id: 5 }]]] }))).toBeUndefined()
+  })
+})
+
+describe('createFeedCacheFile', () => {
+  function cacheFile(): string {
+    const dir = join(TEST_DATA_DIR, 'feed-cache')
+    mkdirSync(dir, { recursive: true })
+    return join(dir, `${randomUUID()}.json`)
+  }
+
+  it('saves the feed to the file and reads it back', async () => {
+    const file = cacheFile()
+    const saved: SavedFeed = { fetchedAt: 9, channels: [[GAMERS_NEXUS, []]] }
+    createFeedCacheFile(file).save(saved)
+    await expect.poll(() => readSavedFeed(readFileSync(file, 'utf8'))).toEqual(saved)
+    expect(createFeedCacheFile(file).load()).toEqual(saved)
+  })
+
+  it('gives nothing for a missing or broken file', () => {
+    const file = cacheFile()
+    expect(createFeedCacheFile(file).load()).toBeUndefined()
+    writeFileSync(file, '{ broken')
+    expect(createFeedCacheFile(file).load()).toBeUndefined()
   })
 })

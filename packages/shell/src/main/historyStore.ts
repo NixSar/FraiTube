@@ -1,6 +1,8 @@
 import { createRecordTableSql, type ModuleSchema, type Storage } from '@fraitube/storage'
 import {
   isHistoryEntry,
+  isWatched,
+  withSavedPosition,
   type HistoryEntry,
   type HistoryImportFormat,
   type HistoryImportSummary,
@@ -17,14 +19,16 @@ export const historySchema: ModuleSchema = {
 export interface HistoryStore {
   /** Every watched video, last watched first. */
   list(): HistoryEntry[]
-  /** Records that a video was opened now, keeping its saved position. */
+  /** Records that a video was opened now, keeping its saved position and watched state. */
   record(video: HistoryVideo): HistoryEntry
-  /** Saves where a recorded video stopped. True when the saved position changed. */
+  /** Saves where a recorded video stopped; a position at its end marks it as watched. True when the saved position changed. */
   savePosition(videoId: string, positionSeconds: number): boolean
   /** Adds videos from another app: missing ones are added, and an entry is replaced only by a later watch. */
   import(entries: readonly HistoryEntry[], format: HistoryImportFormat): HistoryImportSummary
-  /** Leaves a video out of Continue watching, keeping its entry, until it is played again. */
-  hideFromContinueWatching(videoId: string): void
+  /** Marks a video as watched, adding it to the history when it is not there. */
+  markWatched(video: HistoryVideo): void
+  /** Marks a video as unwatched, keeping its entry and position. */
+  markUnwatched(videoId: string): void
   remove(videoId: string): void
   clear(): void
 }
@@ -45,6 +49,7 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
         .sort((a, b) => b.watchedAt - a.watchedAt)
     },
     record(video) {
+      const known = current(video.videoId)
       const entry: HistoryEntry = {
         videoId: video.videoId,
         title: video.title,
@@ -53,7 +58,14 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
         channelAvatar: video.channelAvatar ?? '',
         durationSeconds: video.durationSeconds,
         watchedAt: now(),
-        positionSeconds: current(video.videoId)?.positionSeconds ?? 0
+        positionSeconds: known?.positionSeconds ?? 0
+      }
+      // The watched state stays. An entry saved before the mark was kept gets it here when it played to
+      // its end, so starting it over keeps it watched.
+      if (known?.watched !== undefined) {
+        entry.watched = known.watched
+      } else if (known && isWatched(known)) {
+        entry.watched = true
       }
       table.put(video.videoId, entry)
       return entry
@@ -61,7 +73,7 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
     savePosition(videoId, positionSeconds) {
       const entry = current(videoId)
       if (entry && entry.positionSeconds !== positionSeconds) {
-        table.put(videoId, { ...entry, positionSeconds })
+        table.put(videoId, withSavedPosition(entry, positionSeconds))
         return true
       }
       return false
@@ -82,10 +94,30 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
       }
       return summary
     },
-    hideFromContinueWatching(videoId) {
+    markWatched(video) {
+      const entry = current(video.videoId)
+      if (entry) {
+        if (entry.watched !== true) {
+          table.put(video.videoId, { ...entry, watched: true })
+        }
+        return
+      }
+      table.put(video.videoId, {
+        videoId: video.videoId,
+        title: video.title,
+        channelId: video.channelId,
+        channelName: video.channelName,
+        channelAvatar: video.channelAvatar ?? '',
+        durationSeconds: video.durationSeconds,
+        watchedAt: now(),
+        positionSeconds: 0,
+        watched: true
+      })
+    },
+    markUnwatched(videoId) {
       const entry = current(videoId)
-      if (entry && entry.hiddenFromContinueWatching !== true) {
-        table.put(videoId, { ...entry, hiddenFromContinueWatching: true })
+      if (entry && entry.watched !== false) {
+        table.put(videoId, { ...entry, watched: false })
       }
     },
     remove(videoId) {

@@ -9,7 +9,7 @@ describe('settingsLayout', () => {
     const shown = settingsLayout(installedSettings, panels)
     expect(shown.map((section) => section.title)).toEqual(['Playback', 'Subtitles', 'SponsorBlock', 'Appearance', 'General', 'Sync', 'Backup'])
     const labels = (title: string): string[] => shown.find((section) => section.title === title)?.settings.map((setting) => setting.label) ?? []
-    expect(labels('Playback')).toEqual(['Highest automatic quality', 'Resume videos where they stopped'])
+    expect(labels('Playback')).toEqual(['Highest automatic quality', 'Move the video to PiP when leaving its page', 'Resume videos where they stopped'])
     expect(labels('Subtitles')).toEqual([
       'Show subtitles when a video starts',
       'Default subtitle language, for example en or de',

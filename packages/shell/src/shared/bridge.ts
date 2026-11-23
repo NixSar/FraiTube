@@ -33,6 +33,7 @@ export const IpcChannel = {
   listSubscriptions: 'subscriptions:list',
   subscribe: 'subscriptions:subscribe',
   unsubscribe: 'subscriptions:unsubscribe',
+  clearSubscriptions: 'subscriptions:clear',
   importSubscriptions: 'subscriptions:import',
   feed: 'subscriptions:feed',
   feedProgress: 'subscriptions:feed-progress',
@@ -41,7 +42,8 @@ export const IpcChannel = {
   recordHistory: 'history:record',
   saveHistoryPosition: 'history:position',
   removeHistory: 'history:remove',
-  hideFromContinueWatching: 'history:hide-from-continue-watching',
+  markWatched: 'history:mark-watched',
+  markUnwatched: 'history:mark-unwatched',
   clearHistory: 'history:clear',
   importHistory: 'history:import',
   historyChanged: 'history:changed',
@@ -123,6 +125,8 @@ export interface FraiTubeBridge {
   listSubscriptions(): Promise<Subscription[]>
   subscribe(channel: Channel): Promise<void>
   unsubscribe(channelId: string): Promise<void>
+  /** Unsubscribes from every channel. */
+  clearSubscriptions(): Promise<void>
   /** Asks for a FreeTube or NewPipe file and subscribes to its channels. Undefined when no file was chosen. */
   importSubscriptions(): Promise<ImportSummary | undefined>
   /** New videos of every subscribed channel; a refresh fetches them again even while the last load is fresh. */
@@ -138,8 +142,10 @@ export interface FraiTubeBridge {
   /** Saves where a recorded video stopped, without waiting, so it also works while the window closes. */
   saveHistoryPosition(videoId: string, positionSeconds: number): void
   removeHistory(videoId: string): Promise<void>
-  /** Leaves a video out of Continue watching, keeping it in the history, until it is played again. */
-  hideFromContinueWatching(videoId: string): Promise<void>
+  /** Marks a video as watched, adding it to the history when it is not there. */
+  markWatched(video: HistoryVideo): Promise<void>
+  /** Marks a video as unwatched, keeping it in the history with its position. */
+  markUnwatched(videoId: string): Promise<void>
   clearHistory(): Promise<void>
   /** Asks for a FreeTube history file or NewPipe backup and adds its videos. Undefined when no file was chosen. */
   importHistory(): Promise<HistoryImportSummary | undefined>

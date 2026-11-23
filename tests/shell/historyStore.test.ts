@@ -64,22 +64,63 @@ describe('createHistoryStore', () => {
     expect(store.list()[0]?.positionSeconds).toBe(347.141)
   })
 
-  it('hides a video from Continue watching, keeping its entry and position, until it is played again', () => {
-    const store = createHistoryStore(open())
-    store.record(hwNews)
-    store.savePosition(hwNews.videoId, 347.141)
-    store.hideFromContinueWatching(hwNews.videoId)
-    expect(store.list()[0]).toMatchObject({ videoId: hwNews.videoId, positionSeconds: 347.141, hiddenFromContinueWatching: true })
-    const played = store.record(hwNews)
-    expect(played.hiddenFromContinueWatching).toBeUndefined()
-    expect(store.list()[0]?.hiddenFromContinueWatching).toBeUndefined()
-    expect(store.list()[0]?.positionSeconds).toBe(347.141)
+  it('marks a video not in the history as watched, adding it now with its details', () => {
+    const store = createHistoryStore(open(), () => 500)
+    store.markWatched({ ...hwNews, durationSeconds: 0 })
+    expect(store.list()).toEqual([{ ...hwNews, durationSeconds: 0, channelAvatar: '', watchedAt: 500, positionSeconds: 0, watched: true }])
   })
 
-  it('hides nothing for a video that is not in the history', () => {
+  it('marks a video in the history as watched, keeping its position, length and watch time', () => {
+    let time = 100
+    const store = createHistoryStore(open(), () => time++)
+    store.record(hwNews)
+    store.savePosition(hwNews.videoId, 347.141)
+    store.markWatched({ ...hwNews, durationSeconds: 0 })
+    expect(store.list()[0]).toMatchObject({ durationSeconds: hwNews.durationSeconds, positionSeconds: 347.141, watchedAt: 100, watched: true })
+  })
+
+  it('keeps a video watched when it is played again and starts over', () => {
     const store = createHistoryStore(open())
-    store.hideFromContinueWatching(hwNews.videoId)
+    store.record(hwNews)
+    store.markWatched(hwNews)
+    expect(store.record(hwNews).watched).toBe(true)
+    store.savePosition(hwNews.videoId, 0)
+    store.savePosition(hwNews.videoId, 120)
+    expect(store.list()[0]).toMatchObject({ positionSeconds: 120, watched: true })
+  })
+
+  it('marks a video as watched once it plays to its end', () => {
+    const store = createHistoryStore(open())
+    store.record(hwNews)
+    store.savePosition(hwNews.videoId, hwNews.durationSeconds)
+    expect(store.list()[0]?.watched).toBe(true)
+  })
+
+  it('marks a video as unwatched, keeping its position, until it plays to its end again', () => {
+    const store = createHistoryStore(open())
+    store.record(hwNews)
+    store.savePosition(hwNews.videoId, hwNews.durationSeconds)
+    store.markUnwatched(hwNews.videoId)
+    expect(store.list()[0]).toMatchObject({ positionSeconds: hwNews.durationSeconds, watched: false })
+    expect(store.record(hwNews).watched).toBe(false)
+    store.savePosition(hwNews.videoId, 0)
+    store.savePosition(hwNews.videoId, hwNews.durationSeconds)
+    expect(store.list()[0]?.watched).toBe(true)
+  })
+
+  it('marks nothing unwatched for a video that is not in the history', () => {
+    const store = createHistoryStore(open())
+    store.markUnwatched(hwNews.videoId)
     expect(store.list()).toEqual([])
+  })
+
+  it('keeps an entry saved before the mark was kept watched when it played to its end and starts over', () => {
+    const storage = open()
+    storage.records('history').put(hwNews.videoId, { ...hwNews, channelAvatar: '', watchedAt: 1, positionSeconds: hwNews.durationSeconds })
+    const store = createHistoryStore(storage)
+    expect(store.record(hwNews).watched).toBe(true)
+    store.savePosition(hwNews.videoId, 0)
+    expect(store.list()[0]?.watched).toBe(true)
   })
 
   it('saves no position for a video that was never recorded', () => {

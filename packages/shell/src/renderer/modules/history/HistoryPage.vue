@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import { timeAgo } from '@fraitube/subscriptions'
 import { entryWithPosition, videoThumbnail, watchProgress, type HistoryEntry } from '../../../shared/history'
 import { usePaging } from '../../components/paging'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
+import { playInNewWindowItem } from '../../components/videoMenu'
+import ConfirmClearDialog from '../../components/ConfirmClearDialog.vue'
+import { historyClearWarning } from './clearHistory'
+import { useWatchedMenuItem } from './progress'
 
+const { watchedItem } = useWatchedMenuItem()
 const entries = ref<HistoryEntry[]>([])
 const loaded = ref(false)
 const error = ref('')
@@ -32,6 +37,9 @@ function remove(videoId: string): void {
   window.fraitube.removeHistory(videoId).catch(reportError)
 }
 
+const clearDialog = useTemplateRef<InstanceType<typeof ConfirmClearDialog>>('clearDialog')
+
+/** Runs only after the warning, once CLEAR was typed. */
 function clearAll(): void {
   window.fraitube.clearHistory().catch(reportError)
 }
@@ -100,11 +108,18 @@ void reload()
         type="button"
         class="action"
         :disabled="entries.length === 0"
-        @click="clearAll"
+        @click="clearDialog?.open()"
       >
         Clear history
       </button>
     </header>
+    <ConfirmClearDialog
+      ref="clearDialog"
+      title="Clear the whole history?"
+      :warning="historyClearWarning(entries.length)"
+      clear-label="Clear history"
+      @clear="clearAll"
+    />
 
     <p
       v-if="message"
@@ -143,6 +158,7 @@ void reload()
           :channel-name="entry.channelName"
           :channel-avatar="entry.channelAvatar"
           :details="[`Watched ${timeAgo(entry.watchedAt, now)}`]"
+          :menu-items="[playInNewWindowItem(entry.videoId), watchedItem(entry)]"
         >
           <template #actions>
             <button

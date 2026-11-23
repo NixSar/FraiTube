@@ -14,6 +14,8 @@ export interface SubscriptionsStore {
   list(): Subscription[]
   subscribe(channel: Channel): void
   unsubscribe(channelId: string): void
+  /** Unsubscribes from every channel, leaving a removal marker for each. */
+  clear(): void
   /** Subscribes to every channel not subscribed yet. */
   import(channels: readonly Channel[], format: ImportFormat): ImportSummary
   /** Subscribed channels without an icon. */
@@ -54,6 +56,13 @@ export function createSubscriptionsStore(storage: Storage, now: () => number = D
     unsubscribe(channelId) {
       if (current(channelId)) {
         table.remove(channelId)
+      }
+    },
+    clear() {
+      for (const { key, value } of table.list()) {
+        if (isSubscription(value)) {
+          table.remove(key)
+        }
       }
     },
     import(channels, format) {

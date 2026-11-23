@@ -3,6 +3,7 @@ import type { SettingsSection } from '@fraitube/app-api/settings'
 export const PlayerSettingKey = {
   defaultQuality: 'player.defaultQuality',
   volume: 'player.volume',
+  pipOnLeave: 'player.pipOnLeave',
   subtitleSize: 'subtitles.size',
   subtitleLanguage: 'subtitles.language',
   subtitlesOnStart: 'subtitles.startOn',
@@ -48,6 +49,13 @@ export const playerSettings: SettingsSection = {
       default: 100,
       local: true,
       hidden: true
+    },
+    {
+      key: PlayerSettingKey.pipOnLeave,
+      label: 'Move the video to PiP when leaving its page',
+      group: 'Playback',
+      type: 'boolean',
+      default: true
     },
     {
       key: PlayerSettingKey.subtitlesOnStart,

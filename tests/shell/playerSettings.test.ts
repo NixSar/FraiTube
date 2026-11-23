@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { PlayerSettingKey, playerSettings } from '../../packages/shell/src/shared/playerSettings'
 
+describe('PiP setting', () => {
+  it('moves the video to PiP when leaving its page unless turned off, under Playback', () => {
+    expect(playerSettings.settings.find((setting) => setting.key === PlayerSettingKey.pipOnLeave)).toMatchObject({
+      type: 'boolean',
+      group: 'Playback',
+      default: true
+    })
+  })
+})
+
 describe('subtitle settings', () => {
   it('start low on the picture, white on a 75% black box, in sans-serif at 5%', () => {
     const defaults = Object.fromEntries(playerSettings.settings.map((setting) => [setting.key, setting.default]))

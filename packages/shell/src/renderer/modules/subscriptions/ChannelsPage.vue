@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, useTemplateRef } from 'vue'
+import ConfirmClearDialog from '../../components/ConfirmClearDialog.vue'
 import ChannelAvatar from './ChannelAvatar.vue'
+import { subscriptionsClearWarning } from './clearSubscriptions'
 import { unsubscribe, useSubscriptions } from './store'
 
 const { subscriptions } = useSubscriptions()
@@ -31,6 +33,19 @@ async function importFile(): Promise<void> {
   }
 }
 
+const clearDialog = useTemplateRef<InstanceType<typeof ConfirmClearDialog>>('clearDialog')
+
+/** Runs only after the warning, once CLEAR was typed. */
+async function clearAll(): Promise<void> {
+  message.value = ''
+  error.value = ''
+  try {
+    await window.fraitube.clearSubscriptions()
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : String(cause)
+  }
+}
+
 async function remove(channelId: string): Promise<void> {
   error.value = ''
   try {
@@ -45,15 +60,32 @@ async function remove(channelId: string): Promise<void> {
   <div class="channels-page">
     <header class="header">
       <h1>Channels</h1>
-      <button
-        type="button"
-        class="action"
-        :disabled="importing"
-        @click="importFile"
-      >
-        Import from FreeTube or NewPipe
-      </button>
+      <div class="actions">
+        <button
+          type="button"
+          class="action"
+          :disabled="importing"
+          @click="importFile"
+        >
+          Import from FreeTube or NewPipe
+        </button>
+        <button
+          type="button"
+          class="action"
+          :disabled="subscriptions.length === 0"
+          @click="clearDialog?.open()"
+        >
+          Clear subscriptions
+        </button>
+      </div>
     </header>
+    <ConfirmClearDialog
+      ref="clearDialog"
+      title="Clear all subscriptions?"
+      :warning="subscriptionsClearWarning(subscriptions.length)"
+      clear-label="Clear subscriptions"
+      @clear="clearAll"
+    />
     <p
       v-if="message"
       class="message"
@@ -106,6 +138,12 @@ async function remove(channelId: string): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .action {

@@ -18,6 +18,8 @@ import {
   takingOver
 } from './nowPlaying'
 import { subtitlesFrom } from '../../../shared/pip'
+import { PlayerSettingKey } from '../../../shared/playerSettings'
+import { settings } from '../../settings'
 
 const router = useRouter()
 const player = useTemplateRef<InstanceType<typeof VideoPlayer>>('player')
@@ -29,13 +31,14 @@ watch(player, (instance) => {
 /** Off the watch page, the player stays mounted out of sight, playing on until the PiP window takes over. */
 const offPage = computed(() => !pageSlot.value)
 
-// Decided before the watch page goes: a playing video plays on out of sight while the PiP window
-// loads it, and stops once the PiP window takes over at the second it reached. Any other video closes.
+// Decided before the watch page goes: with the PiP setting on, the video carries on out of sight,
+// playing or paused, while the PiP window loads it, and stops once the PiP window takes over at the
+// second it reached, paused when it was. With the setting off, the video closes.
 const removeGuard = router.beforeEach(async (to, from) => {
   if (from.name !== 'watch' || to.name === 'watch' || handingOff.value) {
     return
   }
-  if (placeAfterLeaving(controls.value?.isPlaying() === true) === 'pip' && handOffToPip()) {
+  if (placeAfterLeaving(settings[PlayerSettingKey.pipOnLeave] !== false) === 'pip' && handOffToPip()) {
     return
   }
   closeVideo()

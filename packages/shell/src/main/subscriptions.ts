@@ -62,6 +62,14 @@ export function registerSubscriptionHandlers(store: SubscriptionsStore, feed: Fe
     announceChange()
   })
 
+  ipcMain.handle(IpcChannel.clearSubscriptions, (event) => {
+    if (!fromAppWindow(event)) {
+      throw new Error('Request refused')
+    }
+    store.clear()
+    announceChange()
+  })
+
   ipcMain.handle(IpcChannel.importSubscriptions, async (event): Promise<ImportSummary | undefined> => {
     if (!fromAppWindow(event)) {
       throw new Error('Request refused')

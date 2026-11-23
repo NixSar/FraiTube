@@ -37,8 +37,12 @@ export interface HistoryEntry extends HistoryVideo {
   watchedAt: number
   /** Where the video stopped, in seconds. 0 for a video watched to its end. */
   positionSeconds: number
-  /** True when removed from Continue watching; playing the video again clears it. */
-  hiddenFromContinueWatching?: boolean
+  /**
+   * True once the video played to its end or was marked as watched, false once marked as unwatched.
+   * Only marking it unwatched clears it; its position changes nothing. Missing in entries saved
+   * before the mark was kept, which count as watched when played to their end.
+   */
+  watched?: boolean
 }
 
 /** The apps whose watch history can be imported. */
@@ -85,7 +89,7 @@ export function isHistoryEntry(value: unknown): value is HistoryEntry {
   }
   const entry = value as Partial<HistoryEntry>
   return typeof entry.watchedAt === 'number' && isHistorySeconds(entry.positionSeconds)
-    && (entry.hiddenFromContinueWatching === undefined || typeof entry.hiddenFromContinueWatching === 'boolean')
+    && (entry.watched === undefined || typeof entry.watched === 'boolean')
 }
 
 /** Where a video starts: its saved position, or the beginning when nothing useful is saved. */
@@ -107,17 +111,33 @@ export function positionToSave(currentSeconds: number, ended: boolean, durationS
   return currentSeconds
 }
 
+/** An entry with a newly saved position. A position at the video's end marks it as watched. */
+export function withSavedPosition(entry: HistoryEntry, positionSeconds: number): HistoryEntry {
+  const atEnd = entry.durationSeconds > 0 && positionSeconds >= entry.durationSeconds
+  return { ...entry, positionSeconds, ...(atEnd ? { watched: true } : {}) }
+}
+
 /** An entry with a newly saved position, or undefined when there is no entry or the position is the same. */
 export function entryWithPosition(entry: HistoryEntry | undefined, positionSeconds: number): HistoryEntry | undefined {
-  return entry && entry.positionSeconds !== positionSeconds ? { ...entry, positionSeconds } : undefined
+  return entry && entry.positionSeconds !== positionSeconds ? withSavedPosition(entry, positionSeconds) : undefined
 }
 
 /** Share of a video, in percent, past which it counts as played. */
-export const PLAYED_PERCENT = 2
+export const PLAYED_PERCENT = 1
 
-/** A video counts as played once its saved position is past the given share of its length, 2% unless told otherwise. */
+/** A video counts as played once its saved position is past the given share of its length, 1% unless told otherwise. */
 export function isPlayed(entry: Pick<HistoryEntry, 'positionSeconds' | 'durationSeconds'>, minPercent = PLAYED_PERCENT): boolean {
   return entry.durationSeconds > 0 && entry.positionSeconds > (entry.durationSeconds * minPercent) / 100
+}
+
+/** Whether a video is watched: its mark, or for an entry saved before the mark was kept, whether it played to its end. */
+export function isWatched(entry: Pick<HistoryEntry, 'positionSeconds' | 'durationSeconds' | 'watched'>): boolean {
+  return entry.watched ?? (entry.durationSeconds > 0 && entry.positionSeconds >= entry.durationSeconds)
+}
+
+/** What a video's menu offers: marking it watched, or once it is watched, marking it unwatched. */
+export function watchedAction(entry: HistoryEntry | undefined): 'markWatched' | 'markUnwatched' {
+  return entry && isWatched(entry) ? 'markUnwatched' : 'markWatched'
 }
 
 /** A time as the player shows it, for example 4:05 or 1:02:03. */
@@ -136,10 +156,14 @@ export interface WatchProgress {
 }
 
 /**
- * The progress shown on a video's card, or undefined while it does not count as played.
- * The History page passes 0, so every saved position shows there.
+ * The progress shown on a video's card: the bar always shows the saved position. A watched video is
+ * labeled "Watched"; any other shows its position and length, or nothing while it does not count as
+ * played. The History page passes 0, so every saved position shows there.
  */
-export function watchProgress(entry: Pick<HistoryEntry, 'positionSeconds' | 'durationSeconds'>, minPercent = PLAYED_PERCENT): WatchProgress | undefined {
+export function watchProgress(entry: Pick<HistoryEntry, 'positionSeconds' | 'durationSeconds' | 'watched'>, minPercent = PLAYED_PERCENT): WatchProgress | undefined {
+  if (isWatched(entry)) {
+    return { percent: watchedPercent(entry), label: 'Watched' }
+  }
   if (!isPlayed(entry, minPercent)) {
     return undefined
   }
@@ -155,11 +179,12 @@ export function videoThumbnail(videoId: string): string {
 /** Videos shown under Continue watching in the side column. */
 export const CONTINUE_WATCHING_COUNT = 10
 
-/** The videos last stopped partway and not removed from the list: played past 2% and not to their end, last watched first. */
+/**
+ * The videos in progress: not watched, played past 1% and not to their end, last watched first.
+ */
 export function continueWatching(entries: Iterable<HistoryEntry>, count = CONTINUE_WATCHING_COUNT): HistoryEntry[] {
   return [...entries]
-    .filter((entry) => entry.hiddenFromContinueWatching !== true
-      && isPlayed(entry) && resumeSeconds(entry.positionSeconds, entry.durationSeconds) > 0)
+    .filter((entry) => !isWatched(entry) && isPlayed(entry) && resumeSeconds(entry.positionSeconds, entry.durationSeconds) > 0)
     .sort((a, b) => b.watchedAt - a.watchedAt)
     .slice(0, count)
 }

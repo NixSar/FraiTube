@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import type { WatchProgress } from '../../shared/history'
 import ChannelLine from '../modules/subscriptions/ChannelLine.vue'
 import { cardDetails } from './videoCard'
+import VideoMenu from './VideoMenu.vue'
+import type { VideoMenuItem } from './videoMenu'
 
 /** One video in a grid: thumbnail with its length or watch progress, title, channel and details. */
 const props = defineProps<{
@@ -18,15 +20,23 @@ const props = defineProps<{
   channelName: string
   channelAvatar?: string
   details: readonly (string | undefined)[]
+  /** The card's menu, opened from its ⋮ button, by right-click or by a long press. */
+  menuItems?: VideoMenuItem[]
 }>()
 
 const detailsText = computed(() => cardDetails(props.details))
+const menu = useTemplateRef<InstanceType<typeof VideoMenu>>('menu')
+
+function openMenu(event: MouseEvent): void {
+  menu.value?.openAt(event)
+}
 </script>
 
 <template>
   <article
     class="video-card"
-    :class="{ faded }"
+    :class="{ faded, 'has-menu': menuItems }"
+    @contextmenu="menuItems && openMenu($event)"
   >
     <RouterLink
       class="link"
@@ -80,6 +90,17 @@ const detailsText = computed(() => cardDetails(props.details))
         </div>
       </div>
     </RouterLink>
+    <!-- Laid over the link, so the ⋮ button lines up with the title without being inside the link. -->
+    <div
+      v-if="menuItems"
+      class="menu-anchor"
+    >
+      <div class="menu-spacer" />
+      <VideoMenu
+        ref="menu"
+        :items="menuItems"
+      />
+    </div>
     <div
       v-if="$slots['actions']"
       class="actions"
@@ -92,11 +113,49 @@ const detailsText = computed(() => cardDetails(props.details))
 <style scoped>
 /* Cards outside the visible part of the page are skipped while the page is drawn and laid out. */
 .video-card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   min-inline-size: 0;
   content-visibility: auto;
   contain-intrinsic-size: auto 320px;
+}
+
+.video-card > .link {
+  grid-area: 1 / 1;
+}
+
+/* Above the link, so the dimmed text of a played card never covers the ⋮ button. */
+.menu-anchor {
+  position: relative;
+  z-index: 1;
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 4px 0 4px 4px;
+  pointer-events: none;
+}
+
+.menu-anchor > :deep(.more) {
+  pointer-events: auto;
+}
+
+.menu-spacer {
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.video-card.has-menu .text {
+  padding-inline-end: 24px;
+}
+
+/* With a mouse the ⋮ button shows while the card is pointed at or focused; touch screens always show it. */
+@media (hover: hover) {
+  .video-card:not(:hover, :focus-within) .menu-anchor > :deep(.more:not([aria-expanded="true"])) {
+    opacity: 0;
+  }
 }
 
 /* A played card dims its picture and text; the watched bar and time label stay at full strength. */
