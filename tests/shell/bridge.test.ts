@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest'
+import { isAllowedProxyUrl, isAppPath, isCommentsRequest, isProxyRequest, isSearchRequest, MAX_PATH_LENGTH, MAX_QUERY_LENGTH } from '../../packages/shell/src/shared/bridge'
+
+describe('isAllowedProxyUrl', () => {
+  it('allows YouTube and its video servers over https', () => {
+    expect(isAllowedProxyUrl('https://www.youtube.com/youtubei/v1/player')).toBe(true)
+    expect(isAllowedProxyUrl('https://rr1---sn-abc.googlevideo.com/videoplayback?x=1')).toBe(true)
+  })
+
+  it('refuses other hosts, schemes, ports and credentials', () => {
+    expect(isAllowedProxyUrl('http://www.youtube.com/')).toBe(false)
+    expect(isAllowedProxyUrl('https://example.com/')).toBe(false)
+    expect(isAllowedProxyUrl('https://googlevideo.com.example.com/')).toBe(false)
+    expect(isAllowedProxyUrl('https://www.youtube.com:8443/')).toBe(false)
+    expect(isAllowedProxyUrl('https://user@www.youtube.com/')).toBe(false)
+    expect(isAllowedProxyUrl('not a url')).toBe(false)
+  })
+})
+
+describe('isProxyRequest', () => {
+  const valid = { url: 'https://x.googlevideo.com/a', method: 'POST', headers: { accept: '*/*' }, body: new Uint8Array(2) }
+
+  it('accepts a well-formed request', () => {
+    expect(isProxyRequest(valid)).toBe(true)
+    expect(isProxyRequest({ ...valid, method: 'GET', body: undefined })).toBe(true)
+  })
+
+  it('refuses malformed requests', () => {
+    expect(isProxyRequest(null)).toBe(false)
+    expect(isProxyRequest({ ...valid, method: 'PUT' })).toBe(false)
+    expect(isProxyRequest({ ...valid, url: 'https://example.com/' })).toBe(false)
+    expect(isProxyRequest({ ...valid, headers: { accept: 1 } })).toBe(false)
+    expect(isProxyRequest({ ...valid, body: 'text' })).toBe(false)
+  })
+})
+
+describe('isAppPath', () => {
+  it('accepts in-app paths', () => {
+    expect(isAppPath('/')).toBe(true)
+    expect(isAppPath('/channel/UC123?tab=videos')).toBe(true)
+  })
+
+  it('rejects everything else', () => {
+    expect(isAppPath('https://example.com')).toBe(false)
+    expect(isAppPath('//example.com')).toBe(false)
+    expect(isAppPath('relative')).toBe(false)
+    expect(isAppPath(42)).toBe(false)
+    expect(isAppPath(undefined)).toBe(false)
+    expect(isAppPath('/' + 'a'.repeat(MAX_PATH_LENGTH))).toBe(false)
+  })
+})
+
+describe('isSearchRequest', () => {
+  const token = '123e4567-e89b-42d3-a456-426614174000'
+
+  it('accepts queries with a known filter and an optional token', () => {
+    expect(isSearchRequest({ query: 'cats', filter: 'all' })).toBe(true)
+    expect(isSearchRequest({ query: 'cats', filter: 'channels', continuation: token })).toBe(true)
+  })
+
+  it('refuses empty or long queries, unknown filters and bad tokens', () => {
+    expect(isSearchRequest({ query: '   ', filter: 'all' })).toBe(false)
+    expect(isSearchRequest({ query: 'a'.repeat(MAX_QUERY_LENGTH + 1), filter: 'all' })).toBe(false)
+    expect(isSearchRequest({ query: 'cats', filter: 'playlists' })).toBe(false)
+    expect(isSearchRequest({ query: 'cats', filter: 'all', continuation: 'abc' })).toBe(false)
+    expect(isSearchRequest(null)).toBe(false)
+  })
+})
+
+describe('isCommentsRequest', () => {
+  const token = '123e4567-e89b-42d3-a456-426614174000'
+
+  it('accepts a known order and an optional ID from an earlier page', () => {
+    expect(isCommentsRequest({ videoId: 'l8qxFcaLSM4', sort: 'top' })).toBe(true)
+    expect(isCommentsRequest({ videoId: 'l8qxFcaLSM4', sort: 'newest', continuation: token })).toBe(true)
+  })
+
+  it('refuses unknown orders, YouTube tokens and missing video IDs', () => {
+    expect(isCommentsRequest({ videoId: 'l8qxFcaLSM4', sort: 'oldest' })).toBe(false)
+    expect(isCommentsRequest({ videoId: 'l8qxFcaLSM4', sort: 'top', continuation: 'Eg0SC2w4cXhGY2FMU000GAYy' })).toBe(false)
+    expect(isCommentsRequest({ sort: 'top' })).toBe(false)
+    expect(isCommentsRequest(null)).toBe(false)
+  })
+})

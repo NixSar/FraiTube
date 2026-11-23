@@ -1,0 +1,20 @@
+{
+  "name": "@fraitube/youtube",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "exports": {
+    ".": "./src/index.ts",
+    "./botguard": "./src/botguard.ts",
+    "./ids": "./src/ids.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "bgutils-js": "^4.0.3",
+    "youtubei.js": "^18.3.0"
+  }
+}

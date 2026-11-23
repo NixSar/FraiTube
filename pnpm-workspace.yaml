@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+storeDir: .pnpm-store
+allowBuilds:
+  electron: false
+  electron-winstaller: false

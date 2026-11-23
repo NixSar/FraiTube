@@ -1,0 +1,8 @@
+node_modules/
+.pnpm-store/
+.electron-cache/
+out/
+dist/
+release/
+*.log
+FraiTube Linux.lnk

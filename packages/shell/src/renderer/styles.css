@@ -1,0 +1,76 @@
+/*
+ * Window sizes shared by every page's media queries:
+ *   wide   above 1000px
+ *   medium 600px to 1000px  (width <= 1000px)
+ *   narrow below 600px      (width < 600px), phones included
+ */
+:root {
+  --color-accent: #3d7bd9;
+  --color-on-accent: #ffffff;
+
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+}
+
+:root,
+:root[data-theme='dark'] {
+  --color-background: #181818;
+  --color-surface: #212121;
+  --color-border: #333333;
+  --color-hover: #2c2c2c;
+  --color-text: #eeeeee;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --color-background: #f9f9f9;
+  --color-surface: #ffffff;
+  --color-border: #d9d9d9;
+  --color-hover: #ececec;
+  --color-text: #0f0f0f;
+
+  color-scheme: light;
+}
+
+:root[data-theme='solarized-light'] {
+  --color-background: #fdf6e3;
+  --color-surface: #eee8d5;
+  --color-border: #d6cfb8;
+  --color-hover: #e4ddc7;
+  --color-text: #586e75;
+
+  color-scheme: light;
+}
+
+:root[data-theme='solarized-dark'] {
+  --color-background: #002b36;
+  --color-surface: #073642;
+  --color-border: #0e4b59;
+  --color-hover: #0a414e;
+  --color-text: #93a1a1;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='black'] {
+  --color-background: #000000;
+  --color-surface: #0d0d0d;
+  --color-border: #262626;
+  --color-hover: #1a1a1a;
+  --color-text: #e6e6e6;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-background);
+  color: var(--color-text);
+}
