@@ -16,6 +16,18 @@ export interface CaptionSource extends CaptionTrack {
 
 /** The message shown when a track could not be loaded, also with a fresh token. */
 export const CAPTIONS_FAILED = 'These subtitles could not be loaded'
+/** The message shown when YouTube answers a track request with 429 Too Many Requests. */
+export const CAPTIONS_REFUSED = 'YouTube is refusing subtitle requests from this connection for now'
+/** The HTTP status YouTube refuses requests from a connection with. */
+const TOO_MANY_REQUESTS = 429
+
+/**
+ * The message for a track that could not be loaded. The error comes from the main process, which
+ * wraps the message of the error thrown there in its own text.
+ */
+export function captionErrorText(cause: unknown): string {
+  return cause instanceof Error && cause.message.includes(CAPTIONS_REFUSED) ? CAPTIONS_REFUSED : CAPTIONS_FAILED
+}
 
 function trackLabel(track: RawCaptionTrack): string {
   return track.name?.simpleText ?? track.name?.runs?.map((run) => run.text ?? '').join('') ?? track.languageCode ?? ''
@@ -51,12 +63,27 @@ export function captionUrl(url: string, poToken: string): string {
   return withToken.toString()
 }
 
-/** Returns the response body, or undefined when the request failed. */
-export type FetchCaptionBody = (url: string) => Promise<string | undefined>
+/** A track request's HTTP status and response body. */
+export interface CaptionResponse {
+  status: number
+  body: string
+}
+
+/** Requests a track; a request that fails before any answer rejects. */
+export type FetchCaptionBody = (url: string) => Promise<CaptionResponse>
+
+/** The response body when YouTube sent the track, or undefined. */
+function trackBody(response: CaptionResponse): string | undefined {
+  if (response.status === TOO_MANY_REQUESTS) {
+    throw new Error(CAPTIONS_REFUSED)
+  }
+  return response.status === 200 && response.body.trim() ? response.body : undefined
+}
 
 /**
  * Loads a track with the video's current token. When YouTube sends nothing back, a fresh token is
- * minted and the track is requested once more.
+ * minted and the track is requested once more. A refusal with 429 ends at once, since a fresh token
+ * does not change it.
  */
 export async function loadCaptions(
   fetchBody: FetchCaptionBody,
@@ -64,11 +91,10 @@ export async function loadCaptions(
   poToken: string,
   freshPoToken: () => Promise<string>
 ): Promise<CaptionCue[]> {
-  let body = await fetchBody(captionUrl(url, poToken))
-  if (!body?.trim()) {
-    body = await fetchBody(captionUrl(url, await freshPoToken()))
-  }
-  if (!body?.trim()) {
+  const body =
+    trackBody(await fetchBody(captionUrl(url, poToken))) ??
+    trackBody(await fetchBody(captionUrl(url, await freshPoToken())))
+  if (!body) {
     throw new Error(CAPTIONS_FAILED)
   }
   try {

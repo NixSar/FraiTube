@@ -141,8 +141,13 @@ export async function openVideo(videoId: string, start?: number, subtitles?: str
   }, () => {
     // The playback that follows shows the details, or why the video could not be loaded.
   })
+  await showPlayback(videoId, id, false)
+}
+
+/** Loads the video's playback and shows it, or why it could not be loaded, unless another load began since. */
+async function showPlayback(videoId: string, id: number, fresh: boolean): Promise<void> {
   try {
-    const result = await window.fraitube.getPlayback(videoId)
+    const result = await window.fraitube.getPlayback(videoId, fresh)
     if (id === loadId) {
       playback.value = result
       if (shownDetailsId() !== videoId) {
@@ -158,6 +163,27 @@ export async function openVideo(videoId: string, start?: number, subtitles?: str
       loadingVideo.value = false
     }
   }
+}
+
+/**
+ * Loads the shown video afresh from YouTube. It starts again at the second it reached with the same
+ * subtitle track, and its details stay on the page while it loads.
+ */
+export async function reloadVideo(): Promise<void> {
+  const videoId = playback.value?.videoId ?? details.value?.videoId
+  if (!videoId) {
+    return
+  }
+  const player = controls.value
+  if (player && playback.value) {
+    startSeconds.value = player.playheadSeconds()
+    startSubtitles.value = player.subtitleTrackId()
+  }
+  const id = ++loadId
+  playback.value = undefined
+  playbackError.value = ''
+  loadingVideo.value = true
+  await showPlayback(videoId, id, true)
 }
 
 /**

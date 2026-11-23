@@ -34,6 +34,7 @@ import {
 import { categoryColor, categoryNoun, isMutedAt, segmentToSkip, visibleSegments } from '@fraitube/sponsorblock'
 import type { Segment } from '@fraitube/sponsorblock/types'
 import { normalizeAvatar } from '@fraitube/subscriptions'
+import { captionErrorText } from '@fraitube/youtube/captions'
 import type { VideoPlayback } from '@fraitube/youtube/types'
 import {
   HistorySettingKey,
@@ -83,6 +84,8 @@ const VOLUME_STEP = 5
 const SAVE_POSITION_MS = 5000
 /** How long the "Skipped" notice with its Undo button stays. */
 const SKIP_NOTICE_MS = 6000
+/** How long the line saying subtitles could not be loaded stays. */
+const SUBTITLE_ERROR_MS = 6000
 /** Width of the preview picture shown over the seek bar, in pixels. */
 const PREVIEW_WIDTH = 176
 
@@ -157,6 +160,7 @@ let positionTimer: ReturnType<typeof setInterval> | undefined
 /** The video whose position is saved. Set once it plays, so a video still starting never overwrites its saved place. */
 let trackedVideoId: string | undefined
 let skipNoticeTimer: ReturnType<typeof setTimeout> | undefined
+let subtitleErrorTimer: ReturnType<typeof setTimeout> | undefined
 /** Segments the user undid, which are not skipped again in this video. */
 let undoneSegments = new Set<string>()
 const cueCache = new Map<string, Cue[]>()
@@ -560,9 +564,21 @@ function applyAutoQuality(): void {
   }
 }
 
+/** Shows why subtitles could not be loaded, for SUBTITLE_ERROR_MS or until it is cleared. */
+function showSubtitleError(text: string): void {
+  subtitleError.value = text
+  clearTimeout(subtitleErrorTimer)
+  subtitleErrorTimer = setTimeout(clearSubtitleError, SUBTITLE_ERROR_MS)
+}
+
+function clearSubtitleError(): void {
+  clearTimeout(subtitleErrorTimer)
+  subtitleError.value = ''
+}
+
 async function chooseSubtitles(trackId: string): Promise<void> {
   subtitleTrack.value = trackId
-  subtitleError.value = ''
+  clearSubtitleError()
   cues.value = []
   subtitleText.value = ''
   autoSubtitles = false
@@ -582,18 +598,19 @@ async function chooseSubtitles(trackId: string): Promise<void> {
       autoSubtitles = auto
       cues.value = loaded
     }
-  } catch {
-    // The menu goes back to off, and the line stays until subtitles are chosen again or the video changes.
+  } catch (cause) {
+    // The menu goes back to off, and the line stays a while, until subtitles are turned off or chosen
+    // again, or the video changes.
     if (subtitleTrack.value === trackId && props.playback.videoId === videoId) {
       subtitleTrack.value = ''
-      subtitleError.value = 'These subtitles could not be loaded'
+      showSubtitleError(captionErrorText(cause))
     }
   }
 }
 
-/** Subtitles on with the preferred language, or off. */
+/** Subtitles on with the preferred language, or off; turning them off also clears a failed load's line. */
 function toggleSubtitles(): void {
-  if (subtitleTrack.value) {
+  if (subtitleTrack.value || subtitleError.value) {
     void chooseSubtitles('')
     return
   }
@@ -623,7 +640,7 @@ async function load(): Promise<void> {
   cues.value = []
   subtitleText.value = ''
   subtitleTrack.value = ''
-  subtitleError.value = ''
+  clearSubtitleError()
   segments.value = []
   segmentsError.value = ''
   segmentMuted.value = false
@@ -942,6 +959,7 @@ onBeforeUnmount(() => {
   clearTimeout(handOverTimer)
   clearInterval(positionTimer)
   clearTimeout(skipNoticeTimer)
+  clearTimeout(subtitleErrorTimer)
   window.removeEventListener('beforeunload', savePosition)
   loadId++
   player?.destroy()

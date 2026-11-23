@@ -5,6 +5,7 @@ import { chapterIndexAt } from '@fraitube/player'
 import AboutSection from './AboutSection.vue'
 import ChapterList from './ChapterList.vue'
 import CommentsSection from './CommentsSection.vue'
+import WatchActions from './WatchActions.vue'
 import { startSecondsFrom, subtitlesFrom } from '../../../shared/pip'
 import { controls, details, loadingVideo, openVideo, pageSlot, playback, playbackError } from './nowPlaying'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
@@ -62,7 +63,11 @@ onBeforeUnmount(() => {
         :channel-id="details.channelId"
         :channel-name="details.author"
         @seek="seekTo"
-      />
+      >
+        <template #actions>
+          <WatchActions :video-id="details.videoId" />
+        </template>
+      </AboutSection>
       <ChapterList
         v-if="details.chapters.length > 0"
         :chapters="details.chapters"

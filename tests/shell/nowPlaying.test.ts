@@ -15,6 +15,7 @@ import {
   placeAfterLeaving,
   playback,
   playbackError,
+  reloadVideo,
   returnFromPip,
   startSeconds,
   startSubtitles
@@ -294,6 +295,49 @@ describe('openVideo', () => {
     finish(video('aaaaaaaaaaa'))
     await loading
     expect(playback.value).toBeUndefined()
+    expect(loadingVideo.value).toBe(false)
+  })
+})
+
+describe('reloadVideo', () => {
+  it('loads the video afresh at the second it reached with its subtitle track, keeping its details', async () => {
+    const getPlayback = vi.fn((videoId: string) => Promise.resolve(video(videoId)))
+    stubBridge(getPlayback)
+    await openVideo('aaaaaaaaaaa')
+    const shown = details.value
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 1309, playheadSeconds: () => 1309.4, takeOver: vi.fn(), subtitleTrackId: () => 'a.en' }
+    const first = playback.value
+    const reloading = reloadVideo()
+    expect(playback.value).toBeUndefined()
+    expect(loadingVideo.value).toBe(true)
+    expect(details.value).toBe(shown)
+    await reloading
+    expect(getPlayback).toHaveBeenLastCalledWith('aaaaaaaaaaa', true)
+    expect(playback.value?.videoId).toBe('aaaaaaaaaaa')
+    expect(playback.value).not.toBe(first)
+    expect(startSeconds.value).toBe(1309.4)
+    expect(startSubtitles.value).toBe('a.en')
+    expect(loadingVideo.value).toBe(false)
+  })
+
+  it('tries again a video that could not be loaded', async () => {
+    const getPlayback = vi.fn((videoId: string): Promise<VideoPlayback> => Promise.reject(new Error(`${videoId} unavailable`)))
+    stubBridge(getPlayback, (videoId) => Promise.resolve({ videoId } as VideoDetails))
+    await openVideo('aaaaaaaaaaa', 30)
+    expect(playbackError.value).toBe('aaaaaaaaaaa unavailable')
+    getPlayback.mockImplementation((videoId: string) => Promise.resolve(video(videoId)))
+    await reloadVideo()
+    expect(getPlayback).toHaveBeenLastCalledWith('aaaaaaaaaaa', true)
+    expect(playback.value?.videoId).toBe('aaaaaaaaaaa')
+    expect(playbackError.value).toBe('')
+    expect(startSeconds.value).toBe(30)
+  })
+
+  it('does nothing while no video is shown', async () => {
+    const getPlayback = vi.fn((videoId: string) => Promise.resolve(video(videoId)))
+    stubBridge(getPlayback)
+    await reloadVideo()
+    expect(getPlayback).not.toHaveBeenCalled()
     expect(loadingVideo.value).toBe(false)
   })
 })

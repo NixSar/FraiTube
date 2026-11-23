@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CAPTIONS_FAILED, captionUrl, loadCaptions, parseJson3, readCaptionTracks } from '../../packages/youtube/src/captions'
+import { CAPTIONS_FAILED, CAPTIONS_REFUSED, captionErrorText, captionUrl, loadCaptions, parseJson3, readCaptionTracks } from '../../packages/youtube/src/captions'
 
 describe('readCaptionTracks', () => {
   const raw = [
@@ -56,7 +56,7 @@ describe('loadCaptions', () => {
     let minted = 0
     const cues = await loadCaptions(async (url) => {
       tokens.push(new URL(url).searchParams.get('pot'))
-      return body
+      return { status: 200, body }
     }, base, 'CURRENT', async () => {
       minted++
       return 'FRESH'
@@ -71,7 +71,7 @@ describe('loadCaptions', () => {
     const cues = await loadCaptions(async (url) => {
       const token = new URL(url).searchParams.get('pot')
       tokens.push(token)
-      return token === 'FRESH' ? body : ''
+      return { status: 200, body: token === 'FRESH' ? body : '' }
     }, base, 'CURRENT', async () => 'FRESH')
     expect(cues).toHaveLength(1)
     expect(tokens).toEqual(['CURRENT', 'FRESH'])
@@ -81,13 +81,43 @@ describe('loadCaptions', () => {
     let requests = 0
     await expect(loadCaptions(async () => {
       requests++
-      return undefined
+      return { status: 403, body: '' }
     }, base, 'CURRENT', async () => 'FRESH')).rejects.toThrow(CAPTIONS_FAILED)
     expect(requests).toBe(2)
   })
 
   it('reports a body that is not JSON as not loadable', async () => {
-    await expect(loadCaptions(async () => '<html>', base, 'CURRENT', async () => 'FRESH')).rejects.toThrow(CAPTIONS_FAILED)
+    await expect(loadCaptions(async () => ({ status: 200, body: '<html>' }), base, 'CURRENT', async () => 'FRESH')).rejects.toThrow(CAPTIONS_FAILED)
+  })
+
+  it('reports a refusal with 429 at once, without minting a fresh token', async () => {
+    let requests = 0
+    let minted = 0
+    await expect(loadCaptions(async () => {
+      requests++
+      return { status: 429, body: '<html>' }
+    }, base, 'CURRENT', async () => {
+      minted++
+      return 'FRESH'
+    })).rejects.toThrow(CAPTIONS_REFUSED)
+    expect(requests).toBe(1)
+    expect(minted).toBe(0)
+  })
+
+  it('reports a refusal of the second try too', async () => {
+    const statuses = [200, 429]
+    await expect(loadCaptions(async () => ({ status: statuses.shift() ?? 0, body: '' }), base, 'CURRENT', async () => 'FRESH')).rejects.toThrow(CAPTIONS_REFUSED)
+  })
+})
+
+describe('captionErrorText', () => {
+  it('names a refusal from the main process, whose error wraps the message', () => {
+    expect(captionErrorText(new Error(`Error invoking remote method 'youtube:captions': Error: ${CAPTIONS_REFUSED}`))).toBe(CAPTIONS_REFUSED)
+  })
+
+  it('reports any other failure as not loadable', () => {
+    expect(captionErrorText(new Error('Request refused'))).toBe(CAPTIONS_FAILED)
+    expect(captionErrorText('offline')).toBe(CAPTIONS_FAILED)
   })
 })
 

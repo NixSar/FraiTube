@@ -345,7 +345,7 @@ export function createYoutube(options: YoutubeOptions): YoutubeClient {
     }
     const fetchBody: FetchCaptionBody = async (url) => {
       const response = await fetchFunction(url, { headers: { 'user-agent': options.userAgent } })
-      return response.ok ? response.text() : undefined
+      return { status: response.status, body: response.ok ? await response.text() : '' }
     }
     return loadCaptions(fetchBody, track.url, video.poToken, () => refreshPoToken(videoId))
   }

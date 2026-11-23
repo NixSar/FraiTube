@@ -39,10 +39,13 @@ const stats = computed(() => {
         v-if="channelId"
         :channel="{ id: channelId, name: channelName || channelId, avatar: about.channelIcon }"
       />
-      <span
-        v-if="about.likesText"
-        class="likes"
-      >{{ about.likesText }} likes</span>
+      <div class="end">
+        <span
+          v-if="about.likesText"
+          class="likes"
+        >{{ about.likesText }} likes</span>
+        <slot name="actions" />
+      </div>
     </div>
     <div class="description">
       <p
@@ -96,8 +99,15 @@ const stats = computed(() => {
   opacity: 0.75;
 }
 
-.likes {
+.end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-inline-start: auto;
+}
+
+.likes {
   padding: 6px 14px;
   border: 1px solid var(--color-border);
   border-radius: 16px;
