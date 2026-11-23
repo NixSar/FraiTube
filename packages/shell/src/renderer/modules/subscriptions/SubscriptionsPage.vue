@@ -107,7 +107,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="feed-page">
     <header class="header">
-      <h1>Subscriptions</h1>
+      <h1>New videos</h1>
       <span
         v-if="feed && !loading"
         class="meta"
@@ -140,7 +140,7 @@ onBeforeUnmount(() => {
     >
       No subscriptions yet. Subscribe on a video or in search, or import them on the
       <RouterLink :to="{ name: 'channels' }">
-        Channels
+        Subscriptions
       </RouterLink> page.
     </p>
     <FeedLoading

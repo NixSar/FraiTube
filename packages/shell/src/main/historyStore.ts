@@ -86,7 +86,12 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
           table.put(entry.videoId, entry)
           summary.added++
         } else if (entry.watchedAt > known.watchedAt) {
-          table.put(entry.videoId, { ...entry, channelAvatar: known.channelAvatar || entry.channelAvatar || '' })
+          // The watched or unwatched mark set here stays.
+          table.put(entry.videoId, {
+            ...entry,
+            channelAvatar: known.channelAvatar || entry.channelAvatar || '',
+            ...(known.watched === undefined ? {} : { watched: known.watched })
+          })
           summary.updated++
         } else {
           summary.alreadyInHistory++

@@ -128,6 +128,33 @@ describe('createFeedService', () => {
       expect(requested).toEqual([videosFeedUrl(LEVEL1_TECHS)])
       expect(cache.saved?.channels.map(([id]) => id)).toEqual([GAMERS_NEXUS, LEVEL1_TECHS])
     })
+
+    it('drops an unsubscribed channel from the saved feed on the next load, without fetching', async () => {
+      let requests = 0
+      const cache = memoryCache({ fetchedAt: 0, channels: [[GAMERS_NEXUS, []], [LEVEL1_TECHS, []]] })
+      await createFeedService(async () => {
+        requests++
+        return { status: 200, text: rssFeed }
+      }, () => 10, undefined, cache).get([gamersNexus], false)
+      expect(requests).toBe(0)
+      expect(cache.saved?.channels.map(([id]) => id)).toEqual([GAMERS_NEXUS])
+    })
+
+    it('keeps only the subscribed channels in the saved feed, and none once all are cleared', async () => {
+      const cache = memoryCache()
+      const service = createFeedService(async () => ({ status: 200, text: rssFeed }), () => 10, undefined, cache)
+      await service.get([gamersNexus, level1], false)
+      service.keepOnly([level1])
+      expect(cache.saved?.channels.map(([id]) => id)).toEqual([LEVEL1_TECHS])
+      service.keepOnly([])
+      expect(cache.saved?.channels).toEqual([])
+    })
+
+    it('drops cleared channels from a saved feed that was not loaded yet', () => {
+      const cache = memoryCache({ fetchedAt: 0, channels: [[GAMERS_NEXUS, []], [LEVEL1_TECHS, []]] })
+      createFeedService(async () => ({ status: 200, text: rssFeed }), () => 10, undefined, cache).keepOnly([])
+      expect(cache.saved?.channels).toEqual([])
+    })
   })
 
   it('fetches only a new subscription, and nothing when one is removed', async () => {

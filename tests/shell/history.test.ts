@@ -15,7 +15,8 @@ import {
   resumeSeconds,
   watchedAction,
   watchedPercent,
-  watchProgress
+  watchProgress,
+  withSavedPosition
 } from '../../packages/shell/src/shared/history'
 
 const video = {
@@ -133,6 +134,12 @@ describe('positionToSave', () => {
 
   it('saves a position that starts the video from the beginning next time', () => {
     expect(resumeSeconds(positionToSave(2204.9, true, 2205), 2205)).toBe(0)
+  })
+
+  it('marks a video as watched when its stream ends short of its listed length', () => {
+    const entry = { videoId: 'jP9yjEDlc4k', title: '', channelId: '', channelName: '', channelAvatar: '', durationSeconds: 271, watchedAt: 1, positionSeconds: 0 }
+    expect(withSavedPosition(entry, positionToSave(270.6, true, 271)).watched).toBe(true)
+    expect(withSavedPosition(entry, positionToSave(270.6, false, 271)).watched).toBeUndefined()
   })
 })
 

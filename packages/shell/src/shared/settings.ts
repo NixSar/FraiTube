@@ -16,8 +16,8 @@ export const THEMES = [
 
 /** The tabs the app can open at; each value is the name of the tab's route. */
 export const START_PAGES = [
-  { value: 'subscriptions', label: 'Subscriptions' },
-  { value: 'channels', label: 'Channels' },
+  { value: 'subscriptions', label: 'New videos' },
+  { value: 'channels', label: 'Subscriptions' },
   { value: 'history', label: 'History' }
 ]
 
@@ -28,7 +28,7 @@ export const SettingKey = {
   windowBounds: 'window.bounds'
 } as const
 
-/** The route the app opens at for a saved start page value, Subscriptions when the value is not one of the tabs. */
+/** The route the app opens at for a saved start page value, New videos when the value is not one of the tabs. */
 export function startPageRoute(value: unknown): string {
   return START_PAGES.find((page) => page.value === value)?.value ?? 'subscriptions'
 }

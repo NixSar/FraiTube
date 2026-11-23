@@ -59,7 +59,7 @@ async function remove(channelId: string): Promise<void> {
 <template>
   <div class="channels-page">
     <header class="header">
-      <h1>Channels</h1>
+      <h1>Subscriptions</h1>
       <div class="actions">
         <button
           type="button"

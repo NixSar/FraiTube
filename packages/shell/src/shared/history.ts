@@ -101,8 +101,9 @@ export function resumeSeconds(positionSeconds: number, durationSeconds: number):
 }
 
 /**
- * The position saved for a video: where it is, or its full length once it has played to its end,
- * so it shows as fully watched; resumeSeconds starts such a video from the beginning.
+ * The position saved for a video: where it is, or its listed length once it has played to its end,
+ * so it shows as fully watched; resumeSeconds starts such a video from the beginning. The listed
+ * length is the one in the history entry; a stream can end a little short of it.
  */
 export function positionToSave(currentSeconds: number, ended: boolean, durationSeconds: number): number {
   if (ended && Number.isFinite(durationSeconds) && durationSeconds > 0) {

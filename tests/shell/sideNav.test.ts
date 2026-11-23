@@ -3,7 +3,7 @@ import { NAV_ORDER, splitNav } from '../../packages/shell/src/renderer/sideNav'
 import { ABOUT, CREDITS } from '../../packages/shell/src/renderer/modules/about/about'
 
 describe('side navigation', () => {
-  it('has Subscriptions, Favorites and History at the top, and Channels, Settings and About at the bottom', () => {
+  it('has New videos, Favorites and History at the top, and Subscriptions, Settings and About at the bottom', () => {
     const bottom = new Set(['channels', 'settings', 'about'])
     const nav = Object.entries(NAV_ORDER)
       .map(([route, order]) => ({ route, label: route, order, bottom: bottom.has(route) }))

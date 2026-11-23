@@ -15,6 +15,10 @@ export interface PlayerControls {
   takeOver(seconds?: number, paused?: boolean): void
   /** The subtitle track showing, or empty while subtitles are off. */
   subtitleTrackId(): string
+  /** True once the video has played to its end. */
+  hasEnded(): boolean
+  /** True while the video can carry on in the PiP window: it has loaded and has not ended. */
+  canMoveToPip(): boolean
 }
 
 /** The video of this window's watch page. */
@@ -101,11 +105,12 @@ function shownDetailsId(): string | undefined {
 }
 
 /**
- * Leaving the watch page: with the PiP setting on, the video goes into the PiP window, playing or
- * paused as it was; with it off, the video closes.
+ * Leaving the watch page: with the PiP setting on, a video that can carry on goes into the PiP
+ * window, playing or paused as it was. With the setting off, or for a video that cannot play or has
+ * ended, the video closes.
  */
-export function placeAfterLeaving(pipOnLeave: boolean): 'pip' | 'closed' {
-  return pipOnLeave ? 'pip' : 'closed'
+export function placeAfterLeaving(pipOnLeave: boolean, canMoveToPip: boolean): 'pip' | 'closed' {
+  return pipOnLeave && canMoveToPip ? 'pip' : 'closed'
 }
 
 /**
@@ -169,8 +174,9 @@ async function showPlayback(videoId: string, id: number, fresh: boolean): Promis
 }
 
 /**
- * Loads the shown video afresh from YouTube. It starts again at the second it reached with the same
- * subtitle track, and its details stay on the page while it loads.
+ * Loads the shown video afresh from YouTube. It starts again at the second it reached, or from the
+ * beginning once it has ended, with the same subtitle track, and its details stay on the page while
+ * it loads.
  */
 export async function reloadVideo(): Promise<void> {
   const videoId = playback.value?.videoId ?? details.value?.videoId
@@ -179,7 +185,7 @@ export async function reloadVideo(): Promise<void> {
   }
   const player = controls.value
   if (player && playback.value) {
-    startSeconds.value = player.playheadSeconds()
+    startSeconds.value = player.hasEnded() ? 0 : player.playheadSeconds()
     startSubtitles.value = player.subtitleTrackId()
   }
   const id = ++loadId

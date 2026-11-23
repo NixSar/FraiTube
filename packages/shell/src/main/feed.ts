@@ -16,6 +16,8 @@ export type FetchText = (url: string) => Promise<{ status: number; text: string 
 export interface FeedService {
   /** The feed of the given channels, reused while fresh unless a refresh is asked for. */
   get(channels: readonly Channel[], refresh: boolean): Promise<Feed>
+  /** Drops what was fetched for every channel not among the given ones, also from the saved feed. */
+  keepOnly(channels: readonly Channel[]): void
 }
 
 /** The fetched feed as kept between starts: when it was fetched, and each channel's videos, null for a channel that failed. */
@@ -88,7 +90,8 @@ export function createFeedCacheFile(file: string): FeedCache {
  * While channels are fetched, onProgress gets the channels fetched so far: right after the first
  * channel, then at most every FEED_PROGRESS_INTERVAL_MS. Videos come only with the finished feed.
  * The feed is saved in the cache after each fetch and read from it on the first request, so a feed
- * fetched under an hour ago is shown again after a restart.
+ * fetched under an hour ago is shown again after a restart. The saved feed holds subscribed channels
+ * only.
  */
 export function createFeedService(
   fetchText: FetchText,
@@ -112,6 +115,23 @@ export function createFeedService(
 
   function saveCache(fetched: NonNullable<typeof cached>): void {
     cache?.save({ fetchedAt: fetched.fetchedAt, channels: [...fetched.channels].map(([id, videos]) => [id, videos ?? null]) })
+  }
+
+  /** Drops what was fetched for channels not among the given ones. True when something was dropped. */
+  function dropOthers(channels: readonly Channel[]): boolean {
+    readCache()
+    if (!cached) {
+      return false
+    }
+    const subscribed = new Set(channels.map((channel) => channel.id))
+    let dropped = false
+    for (const id of [...cached.channels.keys()]) {
+      if (!subscribed.has(id)) {
+        cached.channels.delete(id)
+        dropped = true
+      }
+    }
+    return dropped
   }
 
   /** One channel's videos, or undefined when its feed could not be loaded. */
@@ -162,10 +182,11 @@ export function createFeedService(
 
   /**
    * Fetches every channel when asked to or when the last fetch is an hour old; otherwise only
-   * channels never fetched, such as a new subscription. A removed subscription needs no fetch.
+   * channels never fetched, such as a new subscription. A removed subscription needs no fetch, and
+   * what was fetched for it is dropped, also from the saved feed.
    */
   async function load(channels: readonly Channel[], refresh: boolean): Promise<Feed> {
-    readCache()
+    const dropped = dropOthers(channels)
     // A fetch time ahead of the clock, as after the clock was turned back, counts as old.
     const age = cached ? now() - cached.fetchedAt : -1
     if (refresh || !cached || age < 0 || age >= FEED_MAX_AGE_MS) {
@@ -179,12 +200,19 @@ export function createFeedService(
     const missing = channels.filter((channel) => !known.channels.has(channel.id))
     if (missing.length > 0) {
       await fetchInto(known, missing)
+    }
+    if (missing.length > 0 || dropped) {
       saveCache(known)
     }
     return build(channels, known)
   }
 
   return {
+    keepOnly(channels) {
+      if (dropOthers(channels) && cached) {
+        saveCache(cached)
+      }
+    },
     get(channels, refresh) {
       const key = `${refresh ? 'refresh:' : ''}${channels.map((channel) => channel.id).sort().join(',')}`
       if (loading?.key === key) {

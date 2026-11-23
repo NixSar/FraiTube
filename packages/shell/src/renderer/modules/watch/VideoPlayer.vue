@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import {
   activeCueText,
   attachPlayer,
@@ -50,7 +50,7 @@ import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
 import { startingSubtitleTrack } from './subtitleStart'
 import { setSetting, settings } from '../../settings'
 import { playerStatusText } from './playerStatus'
-import { controlsHideDelay, shownControlParts } from './controlsVisibility'
+import { controlsHideDelay, nextMenuIndex, shownControlParts, subtitlesMenuMaxHeight, type ControlsState } from './controlsVisibility'
 import AppIcon from '../../components/AppIcon.vue'
 import WaitingMessage from '../../components/WaitingMessage.vue'
 
@@ -123,8 +123,11 @@ const fullscreen = ref(false)
 const controlsShown = ref(true)
 /** True while the pointer is over the player. */
 const pointerInside = ref(false)
+/** True while keyboard focus is inside the controls. */
+const focusInside = ref(false)
 /** True while the subtitles menu above the CC button is open. */
 const subtitlesMenuOpen = ref(false)
+const subtitlesGroup = useTemplateRef<HTMLSpanElement>('subtitlesGroup')
 const subtitlesMenu = useTemplateRef<HTMLDivElement>('subtitlesMenu')
 const subtitlesButton = useTemplateRef<HTMLButtonElement>('subtitlesButton')
 const qualities = ref<Quality[]>([])
@@ -147,6 +150,7 @@ const boxSize = ref({ width: 0, height: 0 })
 const videoSize = ref({ width: 0, height: 0 })
 /** The parts of the control bar that fit the player's width in one row. */
 const shownParts = computed(() => shownControlParts(boxSize.value.width))
+const menuMaxHeight = computed(() => subtitlesMenuMaxHeight(boxSize.value.height))
 
 let player: PlayerHandle | undefined
 let volumeControl: VolumeControl | undefined
@@ -169,6 +173,8 @@ let resizeObserver: ResizeObserver | undefined
 let positionTimer: ReturnType<typeof setInterval> | undefined
 /** The video whose position is saved. Set once it plays, so a video still starting never overwrites its saved place. */
 let trackedVideoId: string | undefined
+/** The tracked video's listed length, the one its history entry holds. */
+let trackedDuration = 0
 let skipNoticeTimer: ReturnType<typeof setTimeout> | undefined
 let subtitleErrorTimer: ReturnType<typeof setTimeout> | undefined
 /** Segments the user undid, which are not skipped again in this video. */
@@ -306,18 +312,22 @@ function resumeEnabled(): boolean {
   return settings[HistorySettingKey.resume] !== false
 }
 
-/** Saves the exact position of the tracked video, or its full length when it has played to its end. */
+/**
+ * Saves the exact position of the tracked video, or its listed length when it has played to its end.
+ * A stream can end a little short of the listed length, which is the one a watched video is checked against.
+ */
 function savePosition(): void {
   const element = videoElement.value
   if (!trackedVideoId || !element || !resumeEnabled()) {
     return
   }
-  window.fraitube.saveHistoryPosition(trackedVideoId, positionToSave(element.currentTime, element.ended, element.duration))
+  window.fraitube.saveHistoryPosition(trackedVideoId, positionToSave(element.currentTime, element.ended, trackedDuration))
 }
 
 function onPlaying(): void {
   buffering.value = false
   trackedVideoId = props.playback.videoId
+  trackedDuration = props.playback.durationSeconds
 }
 
 async function loadSegments(videoId: string, id: number): Promise<void> {
@@ -776,7 +786,16 @@ function subtitleTrackId(): string {
   return subtitleTrack.value
 }
 
-defineExpose({ seekTo, currentTime, pause, isPlaying, playheadSeconds, takeOver, subtitleTrackId })
+function hasEnded(): boolean {
+  return videoElement.value?.ended === true
+}
+
+/** True while the video can carry on in the PiP window: it has loaded and has not ended. */
+function canMoveToPip(): boolean {
+  return player !== undefined && !hasEnded()
+}
+
+defineExpose({ seekTo, currentTime, pause, isPlaying, playheadSeconds, takeOver, subtitleTrackId, hasEnded, canMoveToPip })
 
 function onSeekInput(event: Event): void {
   seekPreview.value = Number((event.target as HTMLInputElement).value)
@@ -822,8 +841,8 @@ async function openPip(): Promise<void> {
   emit('pip')
 }
 
-function hideState(): { paused: boolean; pointerInside: boolean } {
-  return { paused: paused.value, pointerInside: pointerInside.value }
+function hideState(): ControlsState {
+  return { paused: paused.value, pointerInside: pointerInside.value, inUse: focusInside.value || subtitlesMenuOpen.value }
 }
 
 /** Hides the controls after the wait the player's state asks for, unless that state changes to keep them first. */
@@ -868,25 +887,81 @@ function onPause(): void {
   scheduleHide()
 }
 
-function toggleSubtitlesMenu(): void {
-  if (subtitlesMenuOpen.value) {
-    closeSubtitlesMenu()
-  } else {
-    subtitlesMenuOpen.value = true
-    window.addEventListener('pointerdown', onSubtitlesMenuPointerDown, true)
-    window.addEventListener('keydown', onSubtitlesMenuKeyDown, true)
+/** Keyboard focus inside the controls keeps them shown; focus from a mouse click does not. */
+function onControlsFocusIn(event: FocusEvent): void {
+  if (event.target instanceof Element && event.target.matches(':focus-visible')) {
+    focusInside.value = true
+    showControls()
   }
 }
 
+function onControlsFocusOut(event: FocusEvent): void {
+  const next = event.relatedTarget
+  const within = next instanceof Node && event.currentTarget instanceof Node && event.currentTarget.contains(next)
+  if (!within && focusInside.value) {
+    focusInside.value = false
+    scheduleHide()
+  }
+}
+
+function subtitlesMenuItems(): HTMLButtonElement[] {
+  return [...(subtitlesMenu.value?.querySelectorAll('button') ?? [])]
+}
+
+function toggleSubtitlesMenu(): void {
+  if (subtitlesMenuOpen.value) {
+    closeSubtitlesMenu()
+    return
+  }
+  subtitlesMenuOpen.value = true
+  window.addEventListener('pointerdown', onSubtitlesMenuPointerDown, true)
+  window.addEventListener('keydown', onSubtitlesMenuKeyDown, true)
+  // Focus moves to the current choice, so the arrow keys start from it.
+  void nextTick(() => {
+    const items = subtitlesMenuItems()
+    const current = items.find((item) => item.getAttribute('aria-checked') === 'true') ?? items[0]
+    current?.focus()
+  })
+}
+
 function closeSubtitlesMenu(): void {
+  if (!subtitlesMenuOpen.value) {
+    return
+  }
   subtitlesMenuOpen.value = false
   window.removeEventListener('pointerdown', onSubtitlesMenuPointerDown, true)
   window.removeEventListener('keydown', onSubtitlesMenuKeyDown, true)
+  scheduleHide()
+}
+
+/** Closes the menu; focus that was inside it goes back to the CC button. */
+function closeSubtitlesMenuKeepingFocus(): void {
+  const hadFocus = subtitlesMenu.value?.contains(document.activeElement) === true
+  closeSubtitlesMenu()
+  if (hadFocus) {
+    subtitlesButton.value?.focus()
+  }
 }
 
 function chooseSubtitlesFromMenu(trackId: string): void {
-  closeSubtitlesMenu()
+  closeSubtitlesMenuKeepingFocus()
   void chooseSubtitles(trackId)
+}
+
+/** Up and Down move between the menu's items, going round at the ends. */
+function onSubtitlesMenuArrows(event: KeyboardEvent): void {
+  if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+    return
+  }
+  event.preventDefault()
+  const items = subtitlesMenuItems()
+  const current = items.findIndex((item) => item === document.activeElement)
+  items[nextMenuIndex(current, items.length, event.key === 'ArrowDown' ? 1 : -1)]?.focus()
+}
+
+/** True for a key pressed on the CC button or in its menu, which the player's shortcuts leave alone. */
+function inSubtitlesGroup(target: EventTarget | null): boolean {
+  return target instanceof Node && subtitlesGroup.value?.contains(target) === true
 }
 
 function onSubtitlesMenuPointerDown(event: PointerEvent): void {
@@ -900,8 +975,7 @@ function onSubtitlesMenuPointerDown(event: PointerEvent): void {
 function onSubtitlesMenuKeyDown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.stopPropagation()
-    closeSubtitlesMenu()
-    subtitlesButton.value?.focus()
+    closeSubtitlesMenuKeepingFocus()
   }
 }
 
@@ -919,7 +993,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 function onKeyDown(event: KeyboardEvent): void {
-  if (props.compact || props.offPage || event.ctrlKey || event.altKey || event.metaKey || isTyping(event.target)) {
+  if (props.compact || props.offPage || event.ctrlKey || event.altKey || event.metaKey || isTyping(event.target) || inSubtitlesGroup(event.target)) {
     return
   }
   const actions: Record<string, () => void> = {
@@ -1055,9 +1129,9 @@ onBeforeUnmount(() => {
   player?.destroy()
   player = undefined
   cancelAnimationFrame(frame)
+  closeSubtitlesMenu()
   clearTimeout(hideTimer)
   clearTimeout(autoTimer)
-  closeSubtitlesMenu()
   resizeObserver?.disconnect()
   window.removeEventListener('keydown', onKeyDown)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -1126,8 +1200,8 @@ onBeforeUnmount(() => {
       </button>
     </div>
     <div
-      class="controls"
-      @dblclick.stop
+      v-if="subtitleError || segmentsError"
+      class="notices"
     >
       <p
         v-if="subtitleError"
@@ -1141,6 +1215,13 @@ onBeforeUnmount(() => {
       >
         {{ segmentsError }}
       </p>
+    </div>
+    <div
+      class="controls"
+      @dblclick.stop
+      @focusin="onControlsFocusIn"
+      @focusout="onControlsFocusOut"
+    >
       <div
         ref="seekBar"
         class="seek"
@@ -1251,6 +1332,7 @@ onBeforeUnmount(() => {
         <template v-if="!compact">
           <span
             v-if="shownParts.subtitles"
+            ref="subtitlesGroup"
             class="subtitles-group"
           >
             <button
@@ -1276,6 +1358,8 @@ onBeforeUnmount(() => {
               class="subtitles-menu"
               role="menu"
               aria-label="Subtitles"
+              :style="{ maxBlockSize: `${menuMaxHeight}px` }"
+              @keydown="onSubtitlesMenuArrows"
             >
               <button
                 type="button"
@@ -1402,8 +1486,24 @@ video {
   color: #ff8a8a;
 }
 
+/* Above the control bar, shown for their whole time also while the controls are hidden. */
+.notices {
+  position: absolute;
+  inset-inline-start: 12px;
+  inset-block-end: 68px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  max-inline-size: calc(100% - 24px);
+  pointer-events: none;
+}
+
 .notice {
-  margin: 0 0 6px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 75%);
   font-size: 0.85rem;
 }
 
@@ -1552,7 +1652,11 @@ video {
   flex: none;
 }
 
-.bar > .chapter,
+/* The chapter title takes its own width and shortens only when the row runs out of space. */
+.bar > .chapter {
+  flex: 0 1 auto;
+}
+
 .bar > .spacer {
   flex: 1 1 0;
 }
@@ -1581,7 +1685,7 @@ video {
   position: relative;
 }
 
-/* Opens above the CC button, scrolling when the tracks are more than the player's height holds. */
+/* Opens above the CC button; its greatest height follows the player's, and more tracks than that scroll. */
 .subtitles-menu {
   position: absolute;
   inset-block-end: calc(100% + 6px);
@@ -1591,7 +1695,6 @@ video {
   flex-direction: column;
   min-inline-size: 9em;
   max-inline-size: 16em;
-  max-block-size: max(4em, calc(56.25cqw - 64px));
   padding: 4px;
   overflow-y: auto;
   border-radius: 6px;

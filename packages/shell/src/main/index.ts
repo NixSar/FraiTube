@@ -27,6 +27,13 @@ import appIcon from '../../build/icon.png?asset'
 // The name sets the user data folder, where this computer's database lives.
 app.setName('FraiTube')
 
+// One FraiTube process runs at a time, since every process uses the same data folder. Starting the
+// app again while it runs quits the new process and opens a new window in the running one.
+const isOnlyProcess = app.requestSingleInstanceLock()
+if (!isOnlyProcess) {
+  app.quit()
+}
+
 /** Tables of every installed module, as numbered upgrade steps. */
 const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, syncSchema]
 let storage: Storage | undefined
@@ -147,6 +154,10 @@ function createPipWindow(path: string, options: BrowserWindowConstructorOptions)
   return window
 }
 
+app.on('second-instance', () => {
+  createWindow()
+})
+
 ipcMain.on(IpcChannel.openWindow, (_event, path: unknown) => {
   if (isAppPath(path)) {
     createWindow(path)
@@ -168,6 +179,9 @@ ipcMain.on(IpcChannel.openDataFolder, (event) => {
 })
 
 void app.whenReady().then(() => {
+  if (!isOnlyProcess) {
+    return
+  }
   Menu.setApplicationMenu(null)
   const databaseFile = join(app.getPath('userData'), 'fraitube.db')
   storage = openStorage(databaseFile, schemas)

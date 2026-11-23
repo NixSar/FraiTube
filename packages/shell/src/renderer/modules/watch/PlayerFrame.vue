@@ -33,12 +33,14 @@ const offPage = computed(() => !pageSlot.value)
 
 // Decided before the watch page goes: with the PiP setting on, the video carries on out of sight,
 // playing or paused, while the PiP window loads it, and stops once the PiP window takes over at the
-// second it reached, paused when it was. With the setting off, the video closes.
+// second it reached, paused when it was. With the setting off, or when the video cannot play or
+// has ended, the video closes.
 const removeGuard = router.beforeEach(async (to, from) => {
   if (from.name !== 'watch' || to.name === 'watch' || handingOff.value) {
     return
   }
-  if (placeAfterLeaving(settings[PlayerSettingKey.pipOnLeave] !== false) === 'pip' && handOffToPip()) {
+  const canMove = controls.value?.canMoveToPip() === true
+  if (placeAfterLeaving(settings[PlayerSettingKey.pipOnLeave] !== false, canMove) === 'pip' && handOffToPip()) {
     return
   }
   closeVideo()

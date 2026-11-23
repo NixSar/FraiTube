@@ -3,8 +3,10 @@ import {
   CONTROL_PART_MIN_WIDTH,
   controlsHideDelay,
   HIDE_CONTROLS_MS,
+  nextMenuIndex,
   PAUSED_HIDE_MS,
   shownControlParts,
+  subtitlesMenuMaxHeight,
   type ControlPart
 } from '../../packages/shell/src/renderer/modules/watch/controlsVisibility'
 import { ICONS, isIconName } from '../../packages/shell/src/renderer/components/icons'
@@ -12,17 +14,39 @@ import { NAV_ORDER } from '../../packages/shell/src/renderer/sideNav'
 
 describe('controls hiding', () => {
   it('hides a playing video\'s controls a while after the pointer stops, wherever it is', () => {
-    expect(controlsHideDelay({ paused: false, pointerInside: true })).toBe(HIDE_CONTROLS_MS)
-    expect(controlsHideDelay({ paused: false, pointerInside: false })).toBe(HIDE_CONTROLS_MS)
+    expect(controlsHideDelay({ paused: false, pointerInside: true, inUse: false })).toBe(HIDE_CONTROLS_MS)
+    expect(controlsHideDelay({ paused: false, pointerInside: false, inUse: false })).toBe(HIDE_CONTROLS_MS)
+    expect(controlsHideDelay({ paused: false, pointerInside: false, inUse: true })).toBe(HIDE_CONTROLS_MS)
   })
 
   it('keeps a paused video\'s controls while the pointer is over the player', () => {
-    expect(controlsHideDelay({ paused: true, pointerInside: true })).toBeUndefined()
+    expect(controlsHideDelay({ paused: true, pointerInside: true, inUse: false })).toBeUndefined()
+  })
+
+  it('keeps a paused video\'s controls while they are in use, with the pointer away', () => {
+    expect(controlsHideDelay({ paused: true, pointerInside: false, inUse: true })).toBeUndefined()
   })
 
   it('hides a paused video\'s controls 1 second after the pointer is away', () => {
     expect(PAUSED_HIDE_MS).toBe(1000)
-    expect(controlsHideDelay({ paused: true, pointerInside: false })).toBe(PAUSED_HIDE_MS)
+    expect(controlsHideDelay({ paused: true, pointerInside: false, inUse: false })).toBe(PAUSED_HIDE_MS)
+  })
+})
+
+describe('subtitles menu', () => {
+  it('stays inside the player, however tall, and never gets smaller than two items', () => {
+    expect(subtitlesMenuMaxHeight(1440)).toBeLessThan(1440)
+    expect(subtitlesMenuMaxHeight(360)).toBeLessThan(360)
+    expect(subtitlesMenuMaxHeight(60)).toBe(64)
+  })
+
+  it('moves between items with the arrow keys, going round at the ends', () => {
+    expect(nextMenuIndex(0, 3, 1)).toBe(1)
+    expect(nextMenuIndex(2, 3, 1)).toBe(0)
+    expect(nextMenuIndex(0, 3, -1)).toBe(2)
+    expect(nextMenuIndex(-1, 3, 1)).toBe(0)
+    expect(nextMenuIndex(-1, 3, -1)).toBe(2)
+    expect(nextMenuIndex(0, 0, 1)).toBe(-1)
   })
 })
 

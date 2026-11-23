@@ -18,7 +18,7 @@ function announceChange(): void {
   }
 }
 
-/** Sends the videos fetched so far to every window, so any open Subscriptions page shows them. */
+/** Sends the videos fetched so far to every window, so any open New videos page shows them. */
 export function announceFeedProgress(progress: FeedProgress): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IpcChannel.feedProgress, progress)
@@ -59,6 +59,7 @@ export function registerSubscriptionHandlers(store: SubscriptionsStore, feed: Fe
       throw new Error('Request refused')
     }
     store.unsubscribe(channelId)
+    feed.keepOnly(store.list())
     announceChange()
   })
 
@@ -67,6 +68,7 @@ export function registerSubscriptionHandlers(store: SubscriptionsStore, feed: Fe
       throw new Error('Request refused')
     }
     store.clear()
+    feed.keepOnly(store.list())
     announceChange()
   })
 

@@ -7,18 +7,18 @@ export const subscriptionsModule = defineModule({
     {
       path: '/subscriptions',
       name: 'subscriptions',
-      title: 'Subscriptions',
+      title: 'New videos',
       component: () => import('./SubscriptionsPage.vue')
     },
     {
       path: '/channels',
       name: 'channels',
-      title: 'Channels',
+      title: 'Subscriptions',
       component: () => import('./ChannelsPage.vue')
     }
   ],
   nav: [
-    { route: 'subscriptions', label: 'Subscriptions', order: NAV_ORDER.subscriptions, icon: 'subscriptions' },
-    { route: 'channels', label: 'Channels', order: NAV_ORDER.channels, bottom: true, icon: 'channels' }
+    { route: 'subscriptions', label: 'New videos', order: NAV_ORDER.subscriptions, icon: 'subscriptions' },
+    { route: 'channels', label: 'Subscriptions', order: NAV_ORDER.channels, bottom: true, icon: 'channels' }
   ]
 })

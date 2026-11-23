@@ -42,8 +42,13 @@ afterEach(() => {
 
 describe('leaving the watch page', () => {
   it('sends the video to the PiP window while the PiP setting is on, and closes it while it is off', () => {
-    expect(placeAfterLeaving(true)).toBe('pip')
-    expect(placeAfterLeaving(false)).toBe('closed')
+    expect(placeAfterLeaving(true, true)).toBe('pip')
+    expect(placeAfterLeaving(false, true)).toBe('closed')
+  })
+
+  it('closes a video that cannot play or has ended, whatever the PiP setting', () => {
+    expect(placeAfterLeaving(true, false)).toBe('closed')
+    expect(placeAfterLeaving(false, false)).toBe('closed')
   })
 })
 
@@ -63,7 +68,7 @@ describe('handing a video to the PiP window', () => {
     const openPip = vi.fn()
     Object.assign(window.fraitube, { openPip })
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 347, playheadSeconds: () => 347.141, takeOver: vi.fn(), subtitleTrackId: () => 'a.en' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 347, playheadSeconds: () => 347.141, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => 'a.en' }
     expect(handOffToPip()).toBe(true)
     expect(openPip).toHaveBeenCalledExactlyOnceWith('aaaaaaaaaaa', 347.141, 'a.en')
     expect(handingOff.value).toBe(true)
@@ -74,7 +79,7 @@ describe('handing a video to the PiP window', () => {
     stubBridge((videoId) => Promise.resolve(video(videoId)))
     Object.assign(window.fraitube, { openPip: vi.fn() })
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     vi.useFakeTimers()
     try {
       handOffToPip()
@@ -95,7 +100,7 @@ describe('handing a video to the PiP window', () => {
   it('stops the video playing on out of sight and gives its exact second once PiP takes over', async () => {
     stubBridge((videoId) => Promise.resolve(video(videoId)))
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 347, playheadSeconds: () => 347.141, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 347, playheadSeconds: () => 347.141, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     handingOff.value = true
     expect(playback.value).toBeDefined()
     expect(handOverNow()).toEqual({ seconds: 347.141, paused: false })
@@ -107,7 +112,7 @@ describe('handing a video to the PiP window', () => {
     stubBridge((videoId) => Promise.resolve(video(videoId)))
     Object.assign(window.fraitube, { openPip: vi.fn() })
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => false, currentTime: 720, playheadSeconds: () => 720, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => false, currentTime: 720, playheadSeconds: () => 720, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     expect(handOffToPip()).toBe(true)
     expect(handOverNow()).toEqual({ seconds: 720, paused: true })
   })
@@ -116,7 +121,7 @@ describe('handing a video to the PiP window', () => {
     stubBridge((videoId) => Promise.resolve(video(videoId)))
     Object.assign(window.fraitube, { openPip: vi.fn() })
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     vi.useFakeTimers()
     try {
       handOffToPip()
@@ -134,7 +139,7 @@ describe('handing a video to the PiP window', () => {
   it('gives nothing when no video is being handed over', async () => {
     stubBridge((videoId) => Promise.resolve(video(videoId)))
     await openVideo('aaaaaaaaaaa')
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 10, playheadSeconds: () => 10, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     expect(handOverNow()).toBeUndefined()
     expect(playback.value?.videoId).toBe('aaaaaaaaaaa')
   })
@@ -179,7 +184,7 @@ describe('a video coming back from the PiP window', () => {
     const { closePip } = stubBridge((videoId) => Promise.resolve(video(videoId)))
     await openVideo('aaaaaaaaaaa')
     const seekTo = vi.fn()
-    controls.value = { seekTo, pause: vi.fn(), isPlaying: () => true, currentTime: 349, playheadSeconds: () => 349, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo, pause: vi.fn(), isPlaying: () => true, currentTime: 349, playheadSeconds: () => 349, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     handingOff.value = true
     expect(returnFromPip('aaaaaaaaaaa', 347, 'a.en')).toEqual({})
     expect(takingOver.value).toBe(false)
@@ -223,7 +228,7 @@ describe('openVideo', () => {
     await openVideo('aaaaaaaaaaa')
     const playing = playback.value
     const seekTo = vi.fn()
-    controls.value = { seekTo, pause: vi.fn(), isPlaying: () => true, currentTime: 0, playheadSeconds: () => 0, takeOver: vi.fn(), subtitleTrackId: () => '' }
+    controls.value = { seekTo, pause: vi.fn(), isPlaying: () => true, currentTime: 0, playheadSeconds: () => 0, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => '' }
     await openVideo('aaaaaaaaaaa')
     await openVideo('aaaaaaaaaaa', 120)
     expect(playback.value).toBe(playing)
@@ -305,7 +310,7 @@ describe('reloadVideo', () => {
     stubBridge(getPlayback)
     await openVideo('aaaaaaaaaaa')
     const shown = details.value
-    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 1309, playheadSeconds: () => 1309.4, takeOver: vi.fn(), subtitleTrackId: () => 'a.en' }
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => true, currentTime: 1309, playheadSeconds: () => 1309.4, takeOver: vi.fn(), hasEnded: () => false, canMoveToPip: () => true, subtitleTrackId: () => 'a.en' }
     const first = playback.value
     const reloading = reloadVideo()
     expect(playback.value).toBeUndefined()
@@ -318,6 +323,14 @@ describe('reloadVideo', () => {
     expect(startSeconds.value).toBe(1309.4)
     expect(startSubtitles.value).toBe('a.en')
     expect(loadingVideo.value).toBe(false)
+  })
+
+  it('starts a video that has ended from the beginning', async () => {
+    stubBridge((videoId) => Promise.resolve(video(videoId)))
+    await openVideo('aaaaaaaaaaa')
+    controls.value = { seekTo: vi.fn(), pause: vi.fn(), isPlaying: () => false, currentTime: 600, playheadSeconds: () => 600, takeOver: vi.fn(), hasEnded: () => true, canMoveToPip: () => false, subtitleTrackId: () => '' }
+    await reloadVideo()
+    expect(startSeconds.value).toBe(0)
   })
 
   it('tries again a video that could not be loaded', async () => {

@@ -159,6 +159,18 @@ describe('createHistoryStore', () => {
     expect(byId.get('dQw4w9WgXcQ')).toMatchObject({ watchedAt: 20 })
   })
 
+  it('keeps a video\'s watched or unwatched mark when an import replaces its entry', () => {
+    const store = createHistoryStore(open(), () => 1000)
+    store.markWatched(hwNews)
+    store.record(ramAltman)
+    store.markUnwatched(ramAltman.videoId)
+    const later = (videoId: string) => ({ ...hwNews, videoId, watchedAt: 5000, positionSeconds: 60 })
+    store.import([later(hwNews.videoId), later(ramAltman.videoId)], 'freetube')
+    const byId = new Map(store.list().map((entry) => [entry.videoId, entry]))
+    expect(byId.get(hwNews.videoId)).toMatchObject({ watchedAt: 5000, positionSeconds: 60, watched: true })
+    expect(byId.get(ramAltman.videoId)).toMatchObject({ watchedAt: 5000, watched: false })
+  })
+
   it('leaves removal markers when removing one entry and when clearing', () => {
     const storage = open()
     const store = createHistoryStore(storage)

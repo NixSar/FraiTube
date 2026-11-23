@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import logo from '../../../../build/icon.png'
 import { ABOUT, CREDITS } from './about'
 
 /** The app's name and version, what it is, its license and links, where its data is kept, and the projects it is built on. */
@@ -20,8 +21,14 @@ function openFolder(): void {
 
 <template>
   <div class="about-page">
-    <h1>
-      FraiTube <span
+    <h1 class="title">
+      <img
+        class="logo"
+        :src="logo"
+        alt=""
+      >
+      <span>FraiTube</span>
+      <span
         v-if="version"
         class="version"
       >{{ version }}</span>
@@ -90,7 +97,20 @@ function openFolder(): void {
   max-inline-size: 800px;
 }
 
+.title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.logo {
+  flex: none;
+  inline-size: 1.4em;
+  block-size: 1.4em;
+}
+
 .version {
+  align-self: last baseline;
   font-size: 1rem;
   font-weight: normal;
   opacity: 0.7;

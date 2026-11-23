@@ -19,6 +19,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - The description, channel and comments under every video.
 - Subscriptions without an account, with new videos fetched at most once an hour or when you press Refresh.
 - History that remembers where you stopped, with progress shown on every video card and Continue watching for unfinished videos.
+- Favorites for the videos you want to keep at hand.
 - Picture-in-picture in its own always-on-top window.
 - As many windows as you like.
 - Import subscriptions and history from FreeTube and NewPipe, merged with what you already have.

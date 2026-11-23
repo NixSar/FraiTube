@@ -153,6 +153,8 @@ export function registerBackupHandlers(options: BackupServiceOptions): void {
       } catch {
         dialog.showErrorBox('Restore backup', 'The backup could not be restored. FraiTube restarts with the data it had.')
       }
+      // The new process takes over as the one FraiTube process.
+      app.releaseSingleInstanceLock()
       const appImage = appImageFile(process.env)
       if (appImage) {
         spawn(appImage, process.argv.slice(1), { detached: true, stdio: 'ignore' }).unref()
