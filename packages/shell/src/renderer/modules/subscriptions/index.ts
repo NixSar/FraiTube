@@ -18,7 +18,7 @@ export const subscriptionsModule = defineModule({
     }
   ],
   nav: [
-    { route: 'subscriptions', label: 'Subscriptions', order: NAV_ORDER.subscriptions },
-    { route: 'channels', label: 'Channels', order: NAV_ORDER.channels, bottom: true }
+    { route: 'subscriptions', label: 'Subscriptions', order: NAV_ORDER.subscriptions, icon: 'subscriptions' },
+    { route: 'channels', label: 'Channels', order: NAV_ORDER.channels, bottom: true, icon: 'channels' }
   ]
 })

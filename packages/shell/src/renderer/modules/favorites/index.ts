@@ -11,5 +11,5 @@ export const favoritesModule = defineModule({
       component: () => import('./FavoritesPage.vue')
     }
   ],
-  nav: [{ route: 'favorites', label: 'Favorites', order: NAV_ORDER.favorites }]
+  nav: [{ route: 'favorites', label: 'Favorites', order: NAV_ORDER.favorites, icon: 'favorites' }]
 })

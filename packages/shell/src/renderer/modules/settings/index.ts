@@ -11,5 +11,5 @@ export const settingsModule = defineModule({
       component: () => import('./SettingsPage.vue')
     }
   ],
-  nav: [{ route: 'settings', label: 'Settings', order: NAV_ORDER.settings, bottom: true }]
+  nav: [{ route: 'settings', label: 'Settings', order: NAV_ORDER.settings, bottom: true, icon: 'settings' }]
 })

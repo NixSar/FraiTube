@@ -23,22 +23,27 @@ const stats = computed(() => {
 <template>
   <section class="about">
     <div class="owner">
-      <ChannelAvatar
-        :name="channelName || channelId"
-        :avatar="about.channelIcon || avatarOf(channelId)"
-        :size="40"
-      />
-      <div class="names">
-        <span class="name">{{ channelName }}</span>
-        <span
-          v-if="about.subscribersText"
-          class="subscribers"
-        >{{ about.subscribersText }}</span>
+      <div class="channel">
+        <ChannelAvatar
+          :name="channelName || channelId"
+          :avatar="about.channelIcon || avatarOf(channelId)"
+          :size="40"
+        />
+        <div
+          class="names"
+          :title="channelName"
+        >
+          <span class="name">{{ channelName }}</span>
+          <span
+            v-if="about.subscribersText"
+            class="subscribers"
+          >{{ about.subscribersText }}</span>
+        </div>
+        <SubscribeButton
+          v-if="channelId"
+          :channel="{ id: channelId, name: channelName || channelId, avatar: about.channelIcon }"
+        />
       </div>
-      <SubscribeButton
-        v-if="channelId"
-        :channel="{ id: channelId, name: channelName || channelId, avatar: about.channelIcon }"
-      />
       <div class="end">
         <span
           v-if="about.likesText"
@@ -76,6 +81,14 @@ const stats = computed(() => {
 </template>
 
 <style scoped>
+/*
+ * The channel and the actions share a line while both fit, the actions at its end. When they do not,
+ * the actions move together to a line of their own under the channel, starting at its left edge.
+ */
+.about {
+  container-type: inline-size;
+}
+
 .owner {
   display: flex;
   flex-wrap: wrap;
@@ -83,15 +96,34 @@ const stats = computed(() => {
   gap: 8px 12px;
 }
 
-.names {
+.channel {
   display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-inline-size: 0;
+}
+
+.channel > :deep(*) {
+  flex: none;
+}
+
+.channel > .names {
+  display: flex;
+  flex: 0 1 auto;
   flex-direction: column;
   min-inline-size: 0;
 }
 
+.name,
+.subscribers {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .name {
   font-weight: 600;
-  overflow-wrap: anywhere;
 }
 
 .subscribers {
@@ -101,10 +133,10 @@ const stats = computed(() => {
 
 .end {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
-  margin-inline-start: auto;
 }
 
 .likes {
@@ -112,6 +144,18 @@ const stats = computed(() => {
   border: 1px solid var(--color-border);
   border-radius: 16px;
   white-space: nowrap;
+}
+
+/* Very narrow: tighter buttons, so likes, Reload and Share still fit on one line. */
+@container (width < 400px) {
+  .end {
+    gap: 6px;
+  }
+
+  .likes,
+  .end :deep(.action) {
+    padding-inline: 10px;
+  }
 }
 
 .description {

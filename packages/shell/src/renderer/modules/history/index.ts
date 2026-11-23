@@ -12,7 +12,7 @@ export const historyModule = defineModule({
       component: () => import('./HistoryPage.vue')
     }
   ],
-  nav: [{ route: 'history', label: 'History', order: NAV_ORDER.history }],
+  nav: [{ route: 'history', label: 'History', order: NAV_ORDER.history, icon: 'history' }],
   settings: historySettings,
   navPanel: () => import('./ContinueWatching.vue')
 })

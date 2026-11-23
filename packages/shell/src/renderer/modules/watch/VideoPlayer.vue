@@ -50,7 +50,9 @@ import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
 import { startingSubtitleTrack } from './subtitleStart'
 import { setSetting, settings } from '../../settings'
 import { playerStatusText } from './playerStatus'
-import BusySpinner from '../../components/BusySpinner.vue'
+import { controlsHideDelay, shownControlParts } from './controlsVisibility'
+import AppIcon from '../../components/AppIcon.vue'
+import WaitingMessage from '../../components/WaitingMessage.vue'
 
 /**
  * `compact` is the PiP window's player: a smaller control bar and no keyboard shortcuts.
@@ -75,7 +77,6 @@ const emit = defineEmits<{ pip: []; readyToTakeOver: [] }>()
 
 /** Auto quality never goes below this height, even in a small window. */
 const MIN_AUTO_HEIGHT = 360
-const HIDE_CONTROLS_MS = 3000
 const AUTO_QUALITY_DELAY_MS = 1000
 const SAVE_VOLUME_DELAY_MS = 500
 const SEEK_STEP_SECONDS = 5
@@ -120,6 +121,12 @@ const volume = ref(savedVolume())
 const muted = ref(false)
 const fullscreen = ref(false)
 const controlsShown = ref(true)
+/** True while the pointer is over the player. */
+const pointerInside = ref(false)
+/** True while the subtitles menu above the CC button is open. */
+const subtitlesMenuOpen = ref(false)
+const subtitlesMenu = useTemplateRef<HTMLDivElement>('subtitlesMenu')
+const subtitlesButton = useTemplateRef<HTMLButtonElement>('subtitlesButton')
 const qualities = ref<Quality[]>([])
 /** 'auto' or the height of a chosen quality. */
 const qualityChoice = ref<'auto' | number>('auto')
@@ -138,6 +145,8 @@ const skippedSegment = ref<Segment>()
 const segmentMuted = ref(false)
 const boxSize = ref({ width: 0, height: 0 })
 const videoSize = ref({ width: 0, height: 0 })
+/** The parts of the control bar that fit the player's width in one row. */
+const shownParts = computed(() => shownControlParts(boxSize.value.width))
 
 let player: PlayerHandle | undefined
 let volumeControl: VolumeControl | undefined
@@ -813,15 +822,95 @@ async function openPip(): Promise<void> {
   emit('pip')
 }
 
-function showControls(): void {
-  controlsShown.value = true
+function hideState(): { paused: boolean; pointerInside: boolean } {
+  return { paused: paused.value, pointerInside: pointerInside.value }
+}
+
+/** Hides the controls after the wait the player's state asks for, unless that state changes to keep them first. */
+function scheduleHide(): void {
   clearTimeout(hideTimer)
+  const wait = controlsHideDelay(hideState())
+  if (wait === undefined) {
+    return
+  }
   hideTimer = setTimeout(() => {
-    if (!paused.value) {
+    if (controlsHideDelay(hideState()) !== undefined) {
       controlsShown.value = false
     }
-  }, HIDE_CONTROLS_MS)
+  }, wait)
 }
+
+function showControls(): void {
+  controlsShown.value = true
+  scheduleHide()
+}
+
+function onPointerOver(): void {
+  pointerInside.value = true
+  showControls()
+}
+
+/** A playing video's controls hide as soon as the pointer leaves; a paused one's a moment later. */
+function onPointerLeave(): void {
+  pointerInside.value = false
+  if (paused.value) {
+    scheduleHide()
+  } else {
+    clearTimeout(hideTimer)
+    controlsShown.value = false
+  }
+}
+
+function onPause(): void {
+  paused.value = true
+  controlsShown.value = true
+  savePosition()
+  scheduleHide()
+}
+
+function toggleSubtitlesMenu(): void {
+  if (subtitlesMenuOpen.value) {
+    closeSubtitlesMenu()
+  } else {
+    subtitlesMenuOpen.value = true
+    window.addEventListener('pointerdown', onSubtitlesMenuPointerDown, true)
+    window.addEventListener('keydown', onSubtitlesMenuKeyDown, true)
+  }
+}
+
+function closeSubtitlesMenu(): void {
+  subtitlesMenuOpen.value = false
+  window.removeEventListener('pointerdown', onSubtitlesMenuPointerDown, true)
+  window.removeEventListener('keydown', onSubtitlesMenuKeyDown, true)
+}
+
+function chooseSubtitlesFromMenu(trackId: string): void {
+  closeSubtitlesMenu()
+  void chooseSubtitles(trackId)
+}
+
+function onSubtitlesMenuPointerDown(event: PointerEvent): void {
+  const target = event.target
+  const inside = target instanceof Node && (subtitlesMenu.value?.contains(target) || subtitlesButton.value?.contains(target))
+  if (!inside) {
+    closeSubtitlesMenu()
+  }
+}
+
+function onSubtitlesMenuKeyDown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    closeSubtitlesMenu()
+    subtitlesButton.value?.focus()
+  }
+}
+
+// The subtitles menu goes with the controls when they hide.
+watch(controlsShown, (shown) => {
+  if (!shown) {
+    closeSubtitlesMenu()
+  }
+})
 
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -968,6 +1057,7 @@ onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
   clearTimeout(hideTimer)
   clearTimeout(autoTimer)
+  closeSubtitlesMenu()
   resizeObserver?.disconnect()
   window.removeEventListener('keydown', onKeyDown)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
@@ -983,15 +1073,16 @@ onBeforeUnmount(() => {
     ref="box"
     class="player"
     :class="{ idle: !controlsShown }"
-    @mousemove="showControls"
-    @mouseleave="paused || (controlsShown = false)"
+    @mouseenter="onPointerOver"
+    @mousemove="onPointerOver"
+    @mouseleave="onPointerLeave"
   >
     <video
       ref="video"
       @click="togglePlay"
       @dblclick="compact || toggleFullscreen()"
       @play="paused = false; showControls()"
-      @pause="paused = true; controlsShown = true; savePosition()"
+      @pause="onPause"
       @ended="savePosition"
       @waiting="buffering = true"
       @playing="onPlaying"
@@ -1020,7 +1111,7 @@ onBeforeUnmount(() => {
       v-else-if="status"
       class="message"
     >
-      <BusySpinner />{{ status }}
+      <WaitingMessage :text="status" />
     </p>
     <div
       v-if="skippedSegment"
@@ -1107,18 +1198,28 @@ onBeforeUnmount(() => {
       <div class="bar">
         <button
           type="button"
+          class="icon-button"
+          :title="paused ? 'Play' : 'Pause'"
           :aria-label="paused ? 'Play' : 'Pause'"
           @click="togglePlay"
         >
-          {{ paused ? 'Play' : 'Pause' }}
+          <AppIcon
+            :name="paused ? 'play' : 'pause'"
+            :size="18"
+          />
         </button>
         <span class="volume-group">
           <button
             type="button"
+            class="icon-button"
+            :title="muted ? 'Unmute' : 'Mute'"
             :aria-label="muted ? 'Unmute' : 'Mute'"
             @click="toggleMute"
           >
-            {{ muted ? 'Unmute' : 'Mute' }}
+            <AppIcon
+              :name="muted ? 'mute' : 'volume'"
+              :size="18"
+            />
           </button>
           <span
             v-if="!compact"
@@ -1137,31 +1238,67 @@ onBeforeUnmount(() => {
             <span class="value">{{ muted ? 0 : volume }}%</span>
           </span>
         </span>
-        <span class="time">{{ formatTime(shownTime) }} / {{ formatTime(duration) }}</span>
         <span
-          v-if="currentChapter && !compact"
+          v-if="compact || shownParts.time"
+          class="time"
+        >{{ formatTime(shownTime) }} / {{ formatTime(duration) }}</span>
+        <span
+          v-if="currentChapter && !compact && shownParts.chapter"
           class="chapter"
           :title="currentChapter.title"
         >{{ currentChapter.title }}</span>
         <span class="spacer" />
         <template v-if="!compact">
-          <select
-            aria-label="Subtitles"
-            :value="subtitleTrack"
-            @change="chooseSubtitles(($event.target as HTMLSelectElement).value)"
+          <span
+            v-if="shownParts.subtitles"
+            class="subtitles-group"
           >
-            <option value="">
-              Subtitles off
-            </option>
-            <option
-              v-for="track in playback.captions"
-              :key="track.id"
-              :value="track.id"
+            <button
+              ref="subtitlesButton"
+              type="button"
+              class="icon-button"
+              :class="{ on: subtitleTrack !== '' }"
+              :title="playback.captions.length > 0 ? 'Subtitles' : 'No subtitles'"
+              aria-label="Subtitles"
+              aria-haspopup="menu"
+              :aria-expanded="subtitlesMenuOpen"
+              :disabled="playback.captions.length === 0"
+              @click="toggleSubtitlesMenu"
             >
-              {{ track.label }}
-            </option>
-          </select>
+              <AppIcon
+                name="subtitles"
+                :size="18"
+              />
+            </button>
+            <div
+              v-if="subtitlesMenuOpen"
+              ref="subtitlesMenu"
+              class="subtitles-menu"
+              role="menu"
+              aria-label="Subtitles"
+            >
+              <button
+                type="button"
+                role="menuitemradio"
+                :aria-checked="subtitleTrack === ''"
+                @click="chooseSubtitlesFromMenu('')"
+              >
+                Off
+              </button>
+              <button
+                v-for="track in playback.captions"
+                :key="track.id"
+                type="button"
+                role="menuitemradio"
+                :aria-checked="subtitleTrack === track.id"
+                @click="chooseSubtitlesFromMenu(track.id)"
+              >
+                {{ track.label }}
+              </button>
+            </div>
+          </span>
           <select
+            v-if="shownParts.quality"
             aria-label="Quality"
             :value="String(qualityChoice)"
             @change="chooseQuality(($event.target as HTMLSelectElement).value)"
@@ -1178,44 +1315,29 @@ onBeforeUnmount(() => {
             </option>
           </select>
           <button
+            v-if="shownParts.pip"
             type="button"
-            class="pip-button"
+            class="icon-button"
             title="Picture in picture"
             aria-label="Picture in picture"
             @click="openPip"
           >
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              aria-hidden="true"
-            >
-              <rect
-                x="2.5"
-                y="4.5"
-                width="19"
-                height="15"
-                rx="2"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.6"
-              />
-              <rect
-                x="12"
-                y="11"
-                width="8"
-                height="6"
-                rx="1"
-                fill="currentColor"
-              />
-            </svg>
+            <AppIcon
+              name="pip"
+              :size="18"
+            />
           </button>
           <button
             type="button"
+            class="icon-button"
+            :title="fullscreen ? 'Exit full screen' : 'Full screen'"
             :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
             @click="toggleFullscreen"
           >
-            {{ fullscreen ? 'Exit full screen' : 'Full screen' }}
+            <AppIcon
+              :name="fullscreen ? 'exitFullscreen' : 'fullscreen'"
+              :size="18"
+            />
           </button>
         </template>
       </div>
@@ -1417,16 +1539,86 @@ video {
   cursor: pointer;
 }
 
+/* Always one row: parts that would not fit are left out as the player narrows. */
 .bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 6px 8px;
+  gap: 8px;
   margin-block-start: 4px;
 }
 
+.bar > * {
+  flex: none;
+}
+
+.bar > .chapter,
+.bar > .spacer {
+  flex: 1 1 0;
+}
+
 .bar select {
-  max-inline-size: 11em;
+  max-inline-size: 9em;
+}
+
+.bar .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+}
+
+.bar .icon-button:disabled {
+  opacity: 0.4;
+}
+
+.bar .icon-button.on {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.subtitles-group {
+  position: relative;
+}
+
+/* Opens above the CC button, scrolling when the tracks are more than the player's height holds. */
+.subtitles-menu {
+  position: absolute;
+  inset-block-end: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 9em;
+  max-inline-size: 16em;
+  max-block-size: max(4em, calc(56.25cqw - 64px));
+  padding: 4px;
+  overflow-y: auto;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 85%);
+}
+
+.bar .subtitles-menu button {
+  padding: 5px 10px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.bar .subtitles-menu button:hover,
+.bar .subtitles-menu button:focus-visible {
+  background: rgb(255 255 255 / 15%);
+  outline: none;
+}
+
+.bar .subtitles-menu button[aria-checked="true"] {
+  color: var(--color-accent);
+  font-weight: bold;
 }
 
 .volume-group,
@@ -1459,12 +1651,6 @@ video {
   background: #212121;
 }
 
-.bar .pip-button {
-  display: inline-flex;
-  align-items: center;
-  padding-block: 3px;
-}
-
 .volume {
   inline-size: 96px;
   accent-color: var(--color-accent);
@@ -1474,14 +1660,15 @@ video {
 .time {
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .value {
   min-inline-size: 3.5em;
 }
 
-/* Narrow players: the volume slider opens above the Mute button, and the chapter title is left out. */
-@container (width < 560px) {
+/* Narrow players: the volume slider opens above the Mute button. */
+@container (width < 640px) {
   .volume-control {
     position: absolute;
     inset-block-end: 100%;
@@ -1498,17 +1685,12 @@ video {
     display: flex;
   }
 
-  .chapter {
-    display: none;
-  }
-
   .controls {
     padding-inline: 8px;
   }
 
   .skip-notice {
     inset-inline-end: 8px;
-    inset-block-end: 104px;
   }
 }
 </style>

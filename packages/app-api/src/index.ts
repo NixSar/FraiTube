@@ -26,6 +26,8 @@ export interface NavItem {
   order?: number
   /** Shown at the bottom of the side column, below the modules' parts, instead of at its top. */
   bottom?: boolean
+  /** The name of the app's icon shown with the label, and alone in the narrow bottom bar. */
+  icon?: string
 }
 
 /** Everything a feature module plugs into the app. */

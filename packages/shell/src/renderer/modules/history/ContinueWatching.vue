@@ -77,6 +77,7 @@ function menuItems(video: HistoryEntry): VideoMenuItem[] {
 /* Lined above and below; the heading stays while the videos scroll when they do not all fit. */
 .continue {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 2px;
   min-block-size: 0;
@@ -176,5 +177,41 @@ h2 {
 
 .left {
   opacity: 0.7;
+}
+
+/* The narrower column: each video's picture spans the column, with one line of title below and the ⋮ button on the picture. */
+@media (width <= 1000px) {
+  .row {
+    position: relative;
+  }
+
+  .item {
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .picture {
+    inline-size: 100%;
+  }
+
+  .text {
+    inline-size: 100%;
+  }
+
+  .title {
+    display: block;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row > :deep(.more) {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    margin: 0;
+    background: rgb(0 0 0 / 60%);
+    color: #fff;
+  }
 }
 </style>

@@ -11,5 +11,5 @@ export const aboutModule = defineModule({
       component: () => import('./AboutPage.vue')
     }
   ],
-  nav: [{ route: 'about', label: 'About', order: NAV_ORDER.about, bottom: true }]
+  nav: [{ route: 'about', label: 'About', order: NAV_ORDER.about, bottom: true, icon: 'about' }]
 })

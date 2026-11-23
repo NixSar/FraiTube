@@ -4,6 +4,8 @@ import { computed, defineAsyncComponent, ref, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { videoIdFromLink } from '@fraitube/youtube/ids'
 import { splitNav } from './sideNav'
+import AppIcon from './components/AppIcon.vue'
+import { isIconName } from './components/icons'
 
 const props = defineProps<{
   nav: NavItem[]
@@ -130,10 +132,16 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
               :href="href"
               class="nav-link"
               :class="{ active: isActive }"
+              :title="item.label"
+              :aria-label="item.label"
               @click="onLinkClick($event, { name: item.route }, navigate)"
               @auxclick="onLinkAuxClick($event, { name: item.route })"
             >
-              {{ item.label }}
+              <AppIcon
+                v-if="isIconName(item.icon)"
+                :name="item.icon"
+              />
+              <span class="nav-label">{{ item.label }}</span>
             </a>
           </RouterLink>
         </div>
@@ -221,24 +229,34 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
   gap: 2px;
 }
 
-/* The space between the top and bottom links; a part taller than it scrolls inside. */
+/* The modules' parts fill the space between the top and bottom links, and scroll inside when taller than it. */
 .nav-panels {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
 }
 
-/* Pushed to the bottom of the side column, below the modules' parts. */
-.nav-bottom {
-  margin-block-start: auto;
-  padding-block-start: 8px;
+/* With no part shown, the bottom links follow the top ones at the same spacing. */
+.nav-panels:empty {
+  display: none;
 }
 
 .nav-link {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-inline-size: 0;
   padding: 8px 12px;
   border-radius: 6px;
   color: var(--color-text);
   text-decoration: none;
+}
+
+.nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -263,14 +281,10 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
   line-height: 1;
 }
 
-/* Medium windows: a narrower side nav, with only the links. */
+/* Medium windows: a narrower side nav. */
 @media (width <= 1000px) {
   .layout {
-    grid-template-columns: 128px 1fr;
-  }
-
-  .nav-panels {
-    display: none;
+    grid-template-columns: 136px 1fr;
   }
 
   .side-nav {
@@ -278,11 +292,9 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
   }
 
   .nav-link {
+    gap: 8px;
     padding: 7px 8px;
     font-size: 14px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .search {
@@ -338,20 +350,23 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
     overflow: hidden;
   }
 
-  /* Every tab shares the bar, top and bottom ones alike. */
+  /* Every tab shares the bar, top and bottom ones alike, as an icon named by its tooltip. */
   .nav-group {
     display: contents;
   }
 
+  .nav-panels {
+    display: none;
+  }
+
   .nav-link {
     flex: 1;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    min-inline-size: 0;
     padding: 4px;
-    font-size: 12px;
-    text-align: center;
+  }
+
+  .nav-label {
+    display: none;
   }
 
   .content {

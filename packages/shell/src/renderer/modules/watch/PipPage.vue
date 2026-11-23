@@ -3,7 +3,7 @@ import { onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { VideoPlayback } from '@fraitube/youtube/types'
 import { startSecondsFrom, subtitlesFrom } from '../../../shared/pip'
-import BusySpinner from '../../components/BusySpinner.vue'
+import WaitingMessage from '../../components/WaitingMessage.vue'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
 import { createPipReturn, RETURNING_STATUS } from './pipReturn'
 import VideoPlayer from './VideoPlayer.vue'
@@ -158,14 +158,17 @@ function onClickCapture(event: MouseEvent): void {
       :class="{ error }"
     >
       <span v-if="error">{{ error }}</span>
-      <span v-else><BusySpinner />{{ VIDEO_DETAILS_STATUS }}</span>
+      <WaitingMessage
+        v-else
+        :text="VIDEO_DETAILS_STATUS"
+      />
     </p>
     <p
       v-if="returning"
       class="returning"
       role="status"
     >
-      <span><BusySpinner />{{ RETURNING_STATUS }}</span>
+      <WaitingMessage :text="RETURNING_STATUS" />
     </p>
     <div class="bar">
       <span
@@ -230,9 +233,9 @@ function onClickCapture(event: MouseEvent): void {
   pointer-events: none;
 }
 
-.returning > span {
-  padding: 6px 12px;
-  border-radius: 14px;
+.returning > * {
+  padding: 10px 14px;
+  border-radius: 10px;
   background: rgb(0 0 0 / 70%);
   font-size: 0.85rem;
 }
