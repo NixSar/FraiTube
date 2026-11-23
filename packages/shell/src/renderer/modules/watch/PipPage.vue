@@ -3,7 +3,9 @@ import { onBeforeUnmount, ref, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { VideoPlayback } from '@fraitube/youtube/types'
 import { startSecondsFrom, subtitlesFrom } from '../../../shared/pip'
+import BusySpinner from '../../components/BusySpinner.vue'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
+import { createPipReturn, RETURNING_STATUS } from './pipReturn'
 import VideoPlayer from './VideoPlayer.vue'
 
 /** The PiP window's page: the video alone, dragged by the picture, with Back and Close. */
@@ -38,9 +40,8 @@ watch(() => [route.params['videoId'], route.query['t'], route.query['cc']], asyn
   }
 }, { immediate: true })
 
-/** After Back, the PiP window closes by itself after this long if the watch page never took over. */
-const BACK_LIMIT_MS = 15_000
-let backTimer: ReturnType<typeof setTimeout> | undefined
+const pipReturn = createPipReturn((videoId, seconds, cc) => window.fraitube.pipBack(videoId, seconds, cc), () => window.close())
+const returning = pipReturn.returning
 
 const stopPauseListening = window.fraitube.onPauseRequested(() => {
   player.value?.pause()
@@ -60,7 +61,7 @@ const stopHandOverListening = window.fraitube.onHandOverRequested(() => {
 onBeforeUnmount(() => {
   stopPauseListening()
   stopHandOverListening()
-  clearTimeout(backTimer)
+  pipReturn.stop()
 })
 
 /** The video has buffered here: it carries on from the second the app window's player reached, paused when that one was. */
@@ -69,13 +70,14 @@ async function takeOver(): Promise<void> {
   player.value?.takeOver(given?.seconds, given?.paused)
 }
 
-/** The video loads on its watch page and takes over from here once buffered; this video plays on until then. */
+/**
+ * The video loads on its watch page and takes over from here once buffered; this video plays on until
+ * then. Back works once: it is disabled and a notice shows while the video returns.
+ */
 function back(): void {
   const video = playback.value
   if (video) {
-    window.fraitube.pipBack(video.videoId, player.value?.playheadSeconds() ?? start.value ?? 0, player.value?.subtitleTrackId() ?? subtitles.value ?? '')
-    clearTimeout(backTimer)
-    backTimer = setTimeout(() => window.close(), BACK_LIMIT_MS)
+    pipReturn.back(video.videoId, player.value?.playheadSeconds() ?? start.value ?? 0, player.value?.subtitleTrackId() ?? subtitles.value ?? '')
   }
 }
 
@@ -155,7 +157,15 @@ function onClickCapture(event: MouseEvent): void {
       class="message"
       :class="{ error }"
     >
-      {{ error || VIDEO_DETAILS_STATUS }}
+      <span v-if="error">{{ error }}</span>
+      <span v-else><BusySpinner />{{ VIDEO_DETAILS_STATUS }}</span>
+    </p>
+    <p
+      v-if="returning"
+      class="returning"
+      role="status"
+    >
+      <span><BusySpinner />{{ RETURNING_STATUS }}</span>
     </p>
     <div class="bar">
       <span
@@ -165,6 +175,7 @@ function onClickCapture(event: MouseEvent): void {
       <button
         type="button"
         title="Back to the watch page"
+        :disabled="returning"
         @click="back"
       >
         Back
@@ -209,6 +220,23 @@ function onClickCapture(event: MouseEvent): void {
   color: #ff8a8a;
 }
 
+/* Over the picture, always shown, while the video goes back to the watch page. */
+.returning {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  pointer-events: none;
+}
+
+.returning > span {
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 70%);
+  font-size: 0.85rem;
+}
+
 /* Shown while the pointer is over the window, like the controls. */
 .bar {
   position: absolute;
@@ -246,5 +274,10 @@ button {
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 </style>

@@ -9,6 +9,7 @@ import WatchActions from './WatchActions.vue'
 import { startSecondsFrom, subtitlesFrom } from '../../../shared/pip'
 import { controls, details, loadingVideo, openVideo, pageSlot, playback, playbackError } from './nowPlaying'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
+import BusySpinner from '../../components/BusySpinner.vue'
 
 const route = useRoute()
 const playerSlot = useTemplateRef<HTMLDivElement>('playerSlot')
@@ -46,7 +47,7 @@ onBeforeUnmount(() => {
         v-if="!playback && loadingVideo"
         class="message"
       >
-        {{ VIDEO_DETAILS_STATUS }}
+        <BusySpinner />{{ VIDEO_DETAILS_STATUS }}
       </p>
     </div>
     <p

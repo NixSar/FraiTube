@@ -50,6 +50,7 @@ import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
 import { startingSubtitleTrack } from './subtitleStart'
 import { setSetting, settings } from '../../settings'
 import { playerStatusText } from './playerStatus'
+import BusySpinner from '../../components/BusySpinner.vue'
 
 /**
  * `compact` is the PiP window's player: a smaller control bar and no keyboard shortcuts.
@@ -1019,7 +1020,7 @@ onBeforeUnmount(() => {
       v-else-if="status"
       class="message"
     >
-      {{ status }}
+      <BusySpinner />{{ status }}
     </p>
     <div
       v-if="skippedSegment"
