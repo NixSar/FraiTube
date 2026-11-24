@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.7 - 2026-11-24
+
+- Update check: when FraiTube starts, a banner says when a newer version is out, and the About page checks for updates. Download fetches the installer from GitHub and checks it against GitHub's checksum. On Windows it can then install it, and on Linux it shows the AppImage in its folder. A setting in General turns off the check on start.
+
 ## 0.9.6 - 2026-11-24
 
 - Default quality replaces Highest automatic quality: choose Max, any YouTube quality from 4320p to 144p, or Auto. Videos start at the nearest quality they have, and Auto is no longer held at 1080p.
