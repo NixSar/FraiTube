@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6 - 2026-11-24
+
+- Default quality replaces Highest automatic quality: choose Max, any YouTube quality from 4320p to 144p, or Auto. Videos start at the nearest quality they have, and Auto is no longer held at 1080p.
+
 ## 0.9.5 - 2026-11-24
 
 - Channel pages: click a channel's name or icon to see its newest videos, with a search field that searches inside the channel.
