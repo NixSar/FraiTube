@@ -11,6 +11,7 @@
     "dev": "pnpm --filter @fraitube/shell dev",
     "build": "pnpm --filter @fraitube/shell build",
     "start": "pnpm --filter @fraitube/shell start",
+    "start:linux": "node scripts/start-linux.mjs",
     "package": "pnpm --filter @fraitube/shell package",
     "typecheck": "pnpm -r typecheck && tsc --noEmit -p tests/tsconfig.json",
     "lint": "eslint .",

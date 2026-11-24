@@ -66,6 +66,7 @@ FraiTube is a pnpm workspace: the app is in packages/shell, its parts are in the
 - `pnpm build` builds the app.
 - `pnpm package` builds the app and packs it for the system it runs on: the Windows installer on Windows, the AppImage on Linux. The files land in the release folder.
 - `pnpm test:linux` runs on Windows with WSL 2 and its Ubuntu, which needs Node.js 24 and pnpm. It copies the project into Ubuntu, runs the checks above there, makes the AppImage and starts it in a window on the Windows desktop.
+- `pnpm start:linux` runs on Windows with the same Ubuntu. It copies the project into Ubuntu, builds the app there and starts it in a window on the Windows desktop.
 
 Every push to main and every pull request is built and checked on Windows and Linux by GitHub Actions. To publish a release:
 
