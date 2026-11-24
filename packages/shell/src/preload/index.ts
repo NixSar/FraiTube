@@ -127,6 +127,25 @@ const bridge: FraiTubeBridge = {
       ipcRenderer.removeListener(IpcChannel.favoritesChanged, handler)
     }
   },
+  listSearchHistory() {
+    return ipcRenderer.invoke(IpcChannel.listSearchHistory)
+  },
+  addSearch(query) {
+    return ipcRenderer.invoke(IpcChannel.addSearch, query)
+  },
+  removeSearch(query) {
+    return ipcRenderer.invoke(IpcChannel.removeSearch, query)
+  },
+  clearSearchHistory() {
+    return ipcRenderer.invoke(IpcChannel.clearSearchHistory)
+  },
+  onSearchHistoryChanged(listener) {
+    const handler = (): void => listener()
+    ipcRenderer.on(IpcChannel.searchHistoryChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcChannel.searchHistoryChanged, handler)
+    }
+  },
   getAppInfo() {
     return ipcRenderer.invoke(IpcChannel.appInfo)
   },

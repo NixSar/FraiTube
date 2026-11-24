@@ -1,7 +1,7 @@
 import type { SettingDefinition, SettingsSection } from '@fraitube/app-api'
 
 /** The order of the Settings page sections; any other section follows them in module order. */
-export const SECTION_ORDER = ['Playback', 'Subtitles', 'SponsorBlock', 'Appearance', 'General', 'Sync', 'Backup']
+export const SECTION_ORDER = ['Playback', 'Subtitles', 'SponsorBlock', 'Appearance', 'General', 'Search history', 'Sync', 'Backup']
 
 /** A section as the Settings page shows it. */
 export interface ShownSection {

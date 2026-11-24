@@ -4,7 +4,7 @@ A desktop app for watching YouTube videos on Windows and Linux that **needs no a
 
 **[Download FraiTube for Windows and Linux](https://github.com/NixSar/FraiTube/releases/latest)**
 
-![New videos from your subscriptions, with Continue watching in the side column](docs/screenshots/new-videos.png)
+![New videos from your subscriptions, with the filter bar and Continue watching in the side column](docs/screenshots/new-videos.png)
 
 ## Why FraiTube
 
@@ -21,9 +21,10 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - **Search and watch**, with chapters, frame previews on the timeline and **SponsorBlock** segment skipping.
 - **Subtitles** in the font, size, color and position you choose, and **volume up to 200%**.
 - The **description, channel and comments** under every video.
-- **Subscriptions without an account**, with new videos fetched every hour or at an interval of up to 24 hours that you choose, or only when you press Refresh.
+- **Subscriptions without an account**, with new videos fetched every hour or at an interval of up to 24 hours that you choose, or only when you press Refresh, and **filters** for videos or live streams, unwatched or in progress, date, channel and title.
 - **History** that remembers where you stopped, with progress shown on every video card and **Continue watching** for unfinished videos.
 - **Favorites** for the videos you want to keep at hand.
+- **Search history** under the search box, which syncs and can be turned off or cleared in Settings.
 - **Picture-in-picture** in its own always-on-top window.
 - **As many windows** as you like.
 - **Import subscriptions and history** from FreeTube and NewPipe, merged with what you already have.

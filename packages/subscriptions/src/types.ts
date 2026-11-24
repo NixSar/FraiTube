@@ -21,6 +21,8 @@ export interface FeedVideo {
   publishedAt: number
   viewsText: string
   thumbnail: string
+  /** True for a live stream from the channel's live feed: a running, ended or scheduled one. */
+  live?: boolean
 }
 
 export interface Feed {

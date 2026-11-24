@@ -67,6 +67,9 @@ export function registerSyncHandlers(options: SyncServiceOptions): SyncService {
     if (result.changedKeys['history']) {
       sendToWindows(IpcChannel.historyChanged)
     }
+    if (result.changedKeys['search_history']) {
+      sendToWindows(IpcChannel.searchHistoryChanged)
+    }
   }
 
   async function syncOnce(): Promise<SyncResult | undefined> {

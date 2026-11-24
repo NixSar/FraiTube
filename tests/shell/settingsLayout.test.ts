@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { searchSettings, sectionId, settingsLayout } from '../../packages/shell/src/renderer/modules/settings/layout'
 import { installedSettings } from '../../packages/shell/src/shared/settings'
 
-const panels = new Set(['Sync', 'Backup'])
+const panels = new Set(['Search history', 'Sync', 'Backup'])
 
 describe('settingsLayout', () => {
   it('shows the sections in their order, with each setting in its group', () => {
     const shown = settingsLayout(installedSettings, panels)
-    expect(shown.map((section) => section.title)).toEqual(['Playback', 'Subtitles', 'SponsorBlock', 'Appearance', 'General', 'Sync', 'Backup'])
+    expect(shown.map((section) => section.title)).toEqual(['Playback', 'Subtitles', 'SponsorBlock', 'Appearance', 'General', 'Search history', 'Sync', 'Backup'])
     const labels = (title: string): string[] => shown.find((section) => section.title === title)?.settings.map((setting) => setting.label) ?? []
     expect(labels('Playback')).toEqual(['Highest automatic quality', 'Move the video to PiP when leaving its page', 'Resume videos where they stopped'])
     expect(labels('Subtitles')).toEqual([
@@ -22,6 +22,7 @@ describe('settingsLayout', () => {
     ])
     expect(labels('Appearance')).toEqual(['Theme', 'Accent color'])
     expect(labels('General')).toEqual(['Open the app at', 'Refresh New videos'])
+    expect(labels('Search history')).toEqual(['Remember searches', 'Searches kept'])
   })
 
   it('leaves out hidden settings and empty sections, and keeps panels with their section', () => {

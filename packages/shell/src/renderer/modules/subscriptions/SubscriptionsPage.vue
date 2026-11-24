@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { timeAgo } from '@fraitube/subscriptions'
 import type { Feed, FeedVideo } from '@fraitube/subscriptions/types'
 import type { FeedProgress } from '../../../shared/bridge'
@@ -8,7 +9,9 @@ import VideoGrid from '../../components/VideoGrid.vue'
 import { usePaging } from '../../components/paging'
 import { playInNewWindowItem, type VideoMenuItem } from '../../components/videoMenu'
 import { useFavoriteMenuItem } from '../favorites/store'
-import { useWatchedMenuItem, useWatchProgress } from '../history/progress'
+import { useHistoryEntries, useWatchedMenuItem, useWatchProgress } from '../history/progress'
+import FeedFilterBar from './FeedFilterBar.vue'
+import { DEFAULT_FEED_FILTERS, feedChannels, feedFiltersQuery, filterFeed, hasActiveFilters, readFeedFilters, type FeedFilters } from './feedFilters'
 import FeedLoading from './FeedLoading.vue'
 import { feedLoadingView } from './feedLoading'
 import { useSubscriptions } from './store'
@@ -36,7 +39,36 @@ function menuItems(video: FeedVideo): VideoMenuItem[] {
   const details = { videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 }
   return [playInNewWindowItem(video.id), watchedItem(details), favoriteItem(details)]
 }
-const { shown, hasMore, showMore } = usePaging(() => feed.value?.videos ?? [], () => loadId.value)
+const route = useRoute()
+const router = useRouter()
+const historyEntries = useHistoryEntries()
+
+// The filters are kept in the page address, so Back and a new window keep them. The bar shows
+// each change at once, before the address follows.
+const filters = ref<FeedFilters>(readFeedFilters(route.query))
+watch(() => route.query, (query) => {
+  const next = readFeedFilters(query)
+  if (JSON.stringify(next) !== JSON.stringify(filters.value)) {
+    filters.value = next
+  }
+})
+
+function setFilters(next: FeedFilters): void {
+  filters.value = next
+  void router.replace({ query: feedFiltersQuery(next) })
+}
+
+const channels = computed(() => feedChannels(feed.value?.videos ?? []))
+/** The filters as applied: a channel with no videos in the feed counts as every channel. */
+const applied = computed(() => {
+  const channel = filters.value.channel
+  return channel && !channels.value.some((known) => known.id === channel) ? { ...filters.value, channel: '' } : filters.value
+})
+const filtered = computed(() =>
+  filterFeed(feed.value?.videos ?? [], applied.value, (videoId) => historyEntries.value.get(videoId), now.value))
+const noMatch = computed(() => (feed.value?.videos.length ?? 0) > 0 && filtered.value.length === 0 && hasActiveFilters(applied.value))
+
+const { shown, hasMore, showMore } = usePaging(() => filtered.value, () => `${loadId.value} ${JSON.stringify(applied.value)}`)
 const loadingView = computed(() => feedLoadingView(subscriptions.value, fetching.value))
 
 // Keeps the "ago" texts current while the page stays open.
@@ -149,6 +181,28 @@ onBeforeUnmount(() => {
       :show-channels="!feed"
     />
 
+    <FeedFilterBar
+      v-if="feed && subscriptions.length > 0"
+      :filters="filters"
+      :channels="channels"
+      @change="setFilters"
+    />
+    <div
+      v-if="noMatch"
+      class="no-match"
+    >
+      <p class="meta">
+        No videos match these filters.
+      </p>
+      <button
+        type="button"
+        class="action"
+        @click="setFilters(DEFAULT_FEED_FILTERS)"
+      >
+        Clear filters
+      </button>
+    </div>
+
     <VideoGrid
       v-if="feed && subscriptions.length > 0"
       :has-more="hasMore"
@@ -207,5 +261,12 @@ onBeforeUnmount(() => {
 
 .error {
   color: #ff6b6b;
+}
+
+.no-match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
 }
 </style>

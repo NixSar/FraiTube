@@ -40,7 +40,8 @@ function isFeedVideo(value: unknown): value is FeedVideo {
   const video = value as Partial<FeedVideo>
   return typeof video.id === 'string' && typeof video.title === 'string' && typeof video.channelId === 'string' &&
     typeof video.channelName === 'string' && typeof video.publishedAt === 'number' &&
-    typeof video.viewsText === 'string' && typeof video.thumbnail === 'string'
+    typeof video.viewsText === 'string' && typeof video.thumbnail === 'string' &&
+    (video.live === undefined || typeof video.live === 'boolean')
 }
 
 function isSavedChannel(value: unknown): value is [string, FeedVideo[] | null] {
@@ -162,16 +163,19 @@ export function createFeedService(
   async function loadLiveStreams(channel: Channel): Promise<FeedVideo[]> {
     try {
       const response = await fetchText(liveFeedUrl(channel.id))
-      return response.status === 200 ? readFeed(response.text, channel) : []
+      return response.status === 200 ? readFeed(response.text, channel).map((video) => ({ ...video, live: true })) : []
     } catch {
       return []
     }
   }
 
-  /** One channel's videos and live streams, newest first, or undefined when its videos feed could not be loaded. */
+  /**
+   * One channel's videos and live streams, newest first, or undefined when its videos feed could not be loaded.
+   * A live stream that the full feed also has keeps its live mark.
+   */
   async function loadChannel(channel: Channel): Promise<FeedVideo[] | undefined> {
     const [videos, liveStreams] = await Promise.all([loadVideos(channel), loadLiveStreams(channel)])
-    return videos && mergeFeeds([videos, liveStreams])
+    return videos && mergeFeeds([liveStreams, videos])
   }
 
   /** The feed of the given channels from what was fetched. A channel not fetched yet is not a failed one. */

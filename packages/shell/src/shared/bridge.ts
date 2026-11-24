@@ -17,6 +17,7 @@ import type { BackupStatus } from './backupSettings'
 import type { Favorite } from './favorites'
 import type { HistoryEntry, HistoryImportSummary, HistoryVideo } from './history'
 import type { HandOver } from './pip'
+import type { PastSearch } from './searchHistory'
 import type { RcloneRemotes, SyncStatus } from './syncSettings'
 
 /** IPC channel names shared by the main process and the preload script. */
@@ -56,6 +57,11 @@ export const IpcChannel = {
   addFavorite: 'favorites:add',
   removeFavorite: 'favorites:remove',
   favoritesChanged: 'favorites:changed',
+  listSearchHistory: 'search-history:list',
+  addSearch: 'search-history:add',
+  removeSearch: 'search-history:remove',
+  clearSearchHistory: 'search-history:clear',
+  searchHistoryChanged: 'search-history:changed',
   appInfo: 'app:info',
   openDataFolder: 'app:open-data-folder',
   sponsorSegments: 'sponsorblock:segments',
@@ -172,6 +178,14 @@ export interface FraiTubeBridge {
   removeFavorite(videoId: string): Promise<void>
   /** Calls the listener whenever the favorites change in any window. Returns a function that stops listening. */
   onFavoritesChanged(listener: () => void): () => void
+  /** The kept searches, newest first. */
+  listSearchHistory(): Promise<PastSearch[]>
+  /** Saves a search as the newest while Remember searches is on; every open window then hears of the change. */
+  addSearch(query: string): Promise<void>
+  removeSearch(query: string): Promise<void>
+  clearSearchHistory(): Promise<void>
+  /** Calls the listener whenever the search history changes in any window or through sync. Returns a function that stops listening. */
+  onSearchHistoryChanged(listener: () => void): () => void
   /** The app's version and the folder where this computer's data is kept. */
   getAppInfo(): Promise<{ version: string; dataFolder: string }>
   /** Opens the data folder in the system's file manager. */

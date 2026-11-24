@@ -17,6 +17,8 @@ import { registerFavoritesHandlers } from './favorites'
 import { createFavoritesStore, favoritesSchema } from './favoritesStore'
 import { registerHistoryHandlers } from './history'
 import { createHistoryStore, historySchema } from './historyStore'
+import { registerSearchHistoryHandlers } from './searchHistory'
+import { createSearchHistoryStore, searchHistorySchema } from './searchHistoryStore'
 import { registerSponsorBlockHandlers } from './sponsorBlock'
 import { announceFeedProgress, registerSubscriptionHandlers } from './subscriptions'
 import { registerSyncHandlers, type SyncService } from './sync'
@@ -35,7 +37,7 @@ if (!isOnlyProcess) {
 }
 
 /** Tables of every installed module, as numbered upgrade steps. */
-const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, syncSchema]
+const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, searchHistorySchema, syncSchema]
 let storage: Storage | undefined
 let settings: SettingsStore | undefined
 let sync: SyncService | undefined
@@ -195,6 +197,7 @@ void app.whenReady().then(() => {
   registerSubscriptionHandlers(createSubscriptionsStore(storage), feed, youtube.getChannelIcon)
   registerHistoryHandlers(createHistoryStore(storage))
   registerFavoritesHandlers(createFavoritesStore(storage))
+  registerSearchHistoryHandlers(createSearchHistoryStore(storage), settings)
   registerSponsorBlockHandlers(settings, app.userAgentFallback)
   registerPipHandlers({ create: createPipWindow, load: loadAppPath, openAppWindow: createWindow })
   createWindow()

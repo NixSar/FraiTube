@@ -6,6 +6,9 @@ import { videoIdFromLink } from '@fraitube/youtube/ids'
 import { splitNav } from './sideNav'
 import AppIcon from './components/AppIcon.vue'
 import { isIconName } from './components/icons'
+import { settings } from './settings'
+import { matchingSearches, SearchHistorySettingKey, type PastSearch } from '../shared/searchHistory'
+import { usePastSearches } from './modules/searchHistory/store'
 
 const props = defineProps<{
   nav: NavItem[]
@@ -38,8 +41,27 @@ watch(() => route.query['q'], (q) => {
   }
 }, { immediate: true })
 
-/** A YouTube video link opens the video; anything else is searched. */
+const pastSearches = usePastSearches()
+/** Whether the past searches show under the search box, while it has the focus. */
+const listOpen = ref(false)
+/** The past search picked with the arrow keys, -1 for none. */
+const highlighted = ref(-1)
+const shownSearches = computed(() =>
+  listOpen.value && settings[SearchHistorySettingKey.remember] !== false ? matchingSearches(pastSearches.value, query.value) : [])
+
+function openList(): void {
+  listOpen.value = true
+  highlighted.value = -1
+}
+
+function closeList(): void {
+  listOpen.value = false
+  highlighted.value = -1
+}
+
+/** A YouTube video link opens the video; anything else is searched and saved in the search history. */
 function search(): void {
+  closeList()
   const text = query.value.trim()
   if (!text) {
     return
@@ -49,7 +71,45 @@ function search(): void {
     query.value = ''
     void router.push({ name: 'watch', params: { videoId } })
   } else {
+    // When saving fails, the search still runs.
+    window.fraitube.addSearch(text).catch(() => undefined)
     void router.push({ name: 'search', query: { q: text } })
+  }
+}
+
+function searchAgain(past: PastSearch): void {
+  query.value = past.query
+  search()
+}
+
+function removePastSearch(past: PastSearch): void {
+  window.fraitube.removeSearch(past.query).catch(() => undefined)
+}
+
+/** The arrow keys move through the past searches, Enter searches the picked one and Escape closes the list. */
+function onSearchKey(event: KeyboardEvent): void {
+  const count = shownSearches.value.length
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    if (!listOpen.value) {
+      openList()
+      event.preventDefault()
+      return
+    }
+    if (count > 0) {
+      // Past the last search or before the first, the typed text is back, with no search picked.
+      const next = highlighted.value + (event.key === 'ArrowDown' ? 1 : -1)
+      highlighted.value = next >= count ? -1 : next < -1 ? count - 1 : next
+      event.preventDefault()
+    }
+  } else if (event.key === 'Enter') {
+    const past = shownSearches.value[highlighted.value]
+    if (past) {
+      event.preventDefault()
+      searchAgain(past)
+    }
+  } else if (event.key === 'Escape' && count > 0) {
+    event.preventDefault()
+    closeList()
   }
 }
 
@@ -95,7 +155,52 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
           placeholder="Search"
           aria-label="Search YouTube"
           maxlength="200"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-controls="past-searches"
+          :aria-expanded="shownSearches.length > 0"
+          :aria-activedescendant="highlighted >= 0 ? `past-search-${highlighted}` : undefined"
+          @focus="openList"
+          @click="listOpen || openList()"
+          @input="openList"
+          @blur="closeList"
+          @keydown="onSearchKey"
         >
+        <ul
+          v-show="shownSearches.length > 0"
+          id="past-searches"
+          class="past-searches"
+          role="listbox"
+          aria-label="Past searches"
+        >
+          <li
+            v-for="(past, index) in shownSearches"
+            :id="`past-search-${index}`"
+            :key="past.query"
+            role="option"
+            class="past-search"
+            :class="{ highlighted: index === highlighted }"
+            :aria-selected="index === highlighted"
+            @mousedown.prevent
+            @click="searchAgain(past)"
+          >
+            <AppIcon
+              name="history"
+              class="past-search-icon"
+            />
+            <span class="past-search-text">{{ past.query }}</span>
+            <button
+              type="button"
+              class="past-search-remove"
+              tabindex="-1"
+              :aria-label="`Remove ${past.query} from search history`"
+              title="Remove from search history"
+              @click.stop="removePastSearch(past)"
+            >
+              &times;
+            </button>
+          </li>
+        </ul>
       </form>
       <button
         type="button"
@@ -191,9 +296,68 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
 }
 
 .search {
+  position: relative;
   flex: 1;
   max-inline-size: 560px;
   margin-inline: 24px;
+}
+
+.past-searches {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(100% + 4px);
+  z-index: 20;
+  margin: 0;
+  padding: 4px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  list-style: none;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}
+
+.past-search {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px 6px 12px;
+  cursor: pointer;
+}
+
+.past-search:hover,
+.past-search.highlighted {
+  background: var(--color-hover);
+}
+
+.past-search-icon {
+  flex: none;
+  opacity: 0.6;
+}
+
+.past-search-text {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.past-search-remove {
+  flex: none;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1.2;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.past-search-remove:hover {
+  background: var(--color-border);
+  opacity: 1;
 }
 
 .search input {

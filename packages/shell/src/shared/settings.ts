@@ -2,6 +2,7 @@ import type { SettingDefinition, SettingsSection } from '@fraitube/app-api/setti
 import { backupSettings } from './backupSettings'
 import { historySettings } from './history'
 import { playerSettings } from './playerSettings'
+import { searchHistorySettings } from './searchHistory'
 import { sponsorBlockSettings } from './sponsorBlockSettings'
 import { syncSettings } from './syncSettings'
 
@@ -75,7 +76,7 @@ export const shellSettings: SettingsSection = {
 }
 
 /** The settings sections of every installed module. The main process checks and stores values against these. */
-export const installedSettings: SettingsSection[] = [shellSettings, playerSettings, historySettings, sponsorBlockSettings, syncSettings, backupSettings]
+export const installedSettings: SettingsSection[] = [shellSettings, playerSettings, historySettings, searchHistorySettings, sponsorBlockSettings, syncSettings, backupSettings]
 
 export function allSettingDefinitions(): SettingDefinition[] {
   return installedSettings.flatMap((section) => section.settings)

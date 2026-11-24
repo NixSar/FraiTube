@@ -59,7 +59,7 @@ describe('createFeedService', () => {
     expect(feed.videos).toEqual([])
   })
 
-  it('adds each channel\'s live streams, newest first, listing each video once', async () => {
+  it('adds each channel\'s live streams with their live mark, newest first, listing each video once', async () => {
     const live = `<feed>
       <entry><yt:videoId>gnlivestrm1</yt:videoId><title>Live</title><published>2030-01-01T10:00:00Z</published></entry>
       <entry><yt:videoId>l8qxFcaLSM4</yt:videoId><title>Again</title><published>2020-01-01T10:00:00Z</published></entry>
@@ -71,8 +71,11 @@ describe('createFeedService', () => {
     }
     const feed = await createFeedService(fetchText).get([gamersNexus], false)
 
-    expect(feed.videos.map((video) => video.id)).toEqual(['gnlivestrm1', 'l8qxFcaLSM4', 'KNVKzPHgg4M'])
-    expect(feed.videos[0]).toMatchObject({ channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus' })
+    expect(feed.videos.map((video) => video.id)).toEqual(['gnlivestrm1', 'KNVKzPHgg4M', 'l8qxFcaLSM4'])
+    expect(feed.videos[0]).toMatchObject({ channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus', live: true })
+    // A video in both feeds is the live feed's, with its live mark.
+    expect(feed.videos[2]).toMatchObject({ title: 'Again', live: true })
+    expect(feed.videos[1]?.live).toBeUndefined()
     expect(feed.failedChannels).toEqual([])
   })
 
@@ -285,9 +288,10 @@ describe('createFeedService', () => {
 describe('readSavedFeed', () => {
   const video = { id: 'l8qxFcaLSM4', title: 'HW News', channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus', publishedAt: 1, viewsText: '', thumbnail: '' }
 
-  it('reads a saved feed', () => {
-    const saved: SavedFeed = { fetchedAt: 7, channels: [[GAMERS_NEXUS, [video]], [LEVEL1_TECHS, null]] }
+  it('reads a saved feed, with and without live marks', () => {
+    const saved: SavedFeed = { fetchedAt: 7, channels: [[GAMERS_NEXUS, [video, { ...video, id: 'gnlivestrm1', live: true }]], [LEVEL1_TECHS, null]] }
     expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
+    expect(readSavedFeed(JSON.stringify({ fetchedAt: 7, channels: [[GAMERS_NEXUS, [{ ...video, live: 'yes' }]]] }))).toBeUndefined()
   })
 
   it('ignores text that is not a saved feed', () => {
