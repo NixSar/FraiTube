@@ -3,6 +3,7 @@ import type { SettingValue } from '@fraitube/app-api/settings'
 import { IpcChannel, type FeedProgress, type FraiTubeBridge } from '../shared/bridge'
 import type { BackupStatus } from '../shared/backupSettings'
 import type { SyncStatus } from '../shared/syncSettings'
+import type { DownloadState, UpdateState } from '../shared/updates'
 
 const bridge: FraiTubeBridge = {
   openWindow(path) {
@@ -151,6 +152,32 @@ const bridge: FraiTubeBridge = {
   },
   openDataFolder() {
     ipcRenderer.send(IpcChannel.openDataFolder)
+  },
+  getUpdateState() {
+    return ipcRenderer.invoke(IpcChannel.updateState)
+  },
+  checkForUpdates() {
+    return ipcRenderer.invoke(IpcChannel.checkForUpdates)
+  },
+  downloadUpdate() {
+    return ipcRenderer.invoke(IpcChannel.downloadUpdate)
+  },
+  installUpdate() {
+    return ipcRenderer.invoke(IpcChannel.installUpdate)
+  },
+  onUpdateStateChanged(listener) {
+    const handler = (_event: IpcRendererEvent, state: UpdateState): void => listener(state)
+    ipcRenderer.on(IpcChannel.updateStateChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcChannel.updateStateChanged, handler)
+    }
+  },
+  onUpdateDownloadChanged(listener) {
+    const handler = (_event: IpcRendererEvent, download: DownloadState): void => listener(download)
+    ipcRenderer.on(IpcChannel.updateDownloadChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(IpcChannel.updateDownloadChanged, handler)
+    }
   },
   onHistoryPositionSaved(listener) {
     const handler = (_event: IpcRendererEvent, videoId: string, positionSeconds: number): void => listener(videoId, positionSeconds)

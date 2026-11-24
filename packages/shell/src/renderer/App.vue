@@ -5,6 +5,7 @@ import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { videoIdFromLink } from '@fraitube/youtube/ids'
 import { splitNav } from './sideNav'
 import AppIcon from './components/AppIcon.vue'
+import UpdateBanner from './components/UpdateBanner.vue'
 import { isIconName } from './components/icons'
 import { settings } from './settings'
 import { matchingSearches, SearchHistorySettingKey, type PastSearch } from '../shared/searchHistory'
@@ -142,6 +143,7 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
     v-else-if="ready"
     class="layout"
   >
+    <UpdateBanner class="banner" />
     <header class="top-bar">
       <span class="app-name">FraiTube</span>
       <form
@@ -278,11 +280,16 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
 .layout {
   display: grid;
   grid-template-areas:
+    'banner banner'
     'top top'
     'nav content';
   grid-template-columns: 200px 1fr;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   block-size: 100vh;
+}
+
+.banner {
+  grid-area: banner;
 }
 
 .top-bar {
@@ -472,11 +479,12 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
     --frame-bottom: 52px;
 
     grid-template-areas:
+      'banner'
       'top'
       'content'
       'nav';
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
   }
 
   .top-bar {

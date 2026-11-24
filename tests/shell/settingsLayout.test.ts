@@ -21,7 +21,7 @@ describe('settingsLayout', () => {
       'Subtitle background opacity, in percent, 0 for no background'
     ])
     expect(labels('Appearance')).toEqual(['Theme', 'Accent color'])
-    expect(labels('General')).toEqual(['Open the app at', 'Refresh New videos'])
+    expect(labels('General')).toEqual(['Open the app at', 'Refresh New videos', 'Check for updates when FraiTube starts'])
     expect(labels('Search history')).toEqual(['Remember searches', 'Searches kept'])
   })
 

@@ -19,6 +19,7 @@ import type { HistoryEntry, HistoryImportSummary, HistoryVideo } from './history
 import type { HandOver } from './pip'
 import type { PastSearch } from './searchHistory'
 import type { RcloneRemotes, SyncStatus } from './syncSettings'
+import type { DownloadState, UpdateState } from './updates'
 
 /** IPC channel names shared by the main process and the preload script. */
 export const IpcChannel = {
@@ -64,6 +65,12 @@ export const IpcChannel = {
   searchHistoryChanged: 'search-history:changed',
   appInfo: 'app:info',
   openDataFolder: 'app:open-data-folder',
+  updateState: 'updates:state',
+  checkForUpdates: 'updates:check',
+  downloadUpdate: 'updates:download',
+  installUpdate: 'updates:install',
+  updateStateChanged: 'updates:state-changed',
+  updateDownloadChanged: 'updates:download-changed',
   sponsorSegments: 'sponsorblock:segments',
   pausePlayback: 'player:pause',
   openPip: 'pip:open',
@@ -190,6 +197,18 @@ export interface FraiTubeBridge {
   getAppInfo(): Promise<{ version: string; dataFolder: string }>
   /** Opens the data folder in the system's file manager. */
   openDataFolder(): void
+  /** The last update check's result and the installer download's progress. */
+  getUpdateState(): Promise<{ state: UpdateState; download: DownloadState }>
+  /** Asks GitHub for the latest release, or waits for the check already running, and returns the result. */
+  checkForUpdates(): Promise<UpdateState>
+  /** Downloads the newer release's installer into the Downloads folder and checks it against GitHub's checksum. */
+  downloadUpdate(): Promise<DownloadState>
+  /** Opens the downloaded installer and closes FraiTube on Windows; shows the AppImage in its folder on Linux. */
+  installUpdate(): Promise<void>
+  /** Calls the listener whenever an update check starts or ends. Returns a function that stops listening. */
+  onUpdateStateChanged(listener: (state: UpdateState) => void): () => void
+  /** Calls the listener as the installer download goes on. Returns a function that stops listening. */
+  onUpdateDownloadChanged(listener: (download: DownloadState) => void): () => void
   /** The SponsorBlock segments of a video. Empty while SponsorBlock is off, and then nothing is requested. */
   getSponsorSegments(videoId: string): Promise<Segment[]>
   /** Calls the listener when a video went into the PiP window, so this window's video pauses. Returns a function that stops listening. */

@@ -34,6 +34,8 @@ export const SettingKey = {
   accent: 'appearance.accent',
   startPage: 'appearance.startPage',
   feedRefresh: 'subscriptions.refresh',
+  checkUpdates: 'updates.checkOnStart',
+  dismissedUpdate: 'updates.dismissed',
   windowBounds: 'window.bounds'
 } as const
 
@@ -63,6 +65,9 @@ export const shellSettings: SettingsSection = {
     { key: SettingKey.accent, label: 'Accent color', type: 'color', default: '#3d7bd9' },
     { key: SettingKey.startPage, label: 'Open the app at', group: 'General', type: 'choice', options: START_PAGES, default: 'subscriptions' },
     { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'General', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },
+    { key: SettingKey.checkUpdates, label: 'Check for updates when FraiTube starts', group: 'General', type: 'boolean', default: true },
+    // The version whose update banner was dismissed; the banner shows again for a newer one.
+    { key: SettingKey.dismissedUpdate, label: 'Dismissed update', group: 'General', type: 'text', maxLength: 40, default: '', local: true, hidden: true },
     {
       key: SettingKey.windowBounds,
       label: 'Window size and position',

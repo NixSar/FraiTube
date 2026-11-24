@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import logo from '../../../../build/icon.png'
 import { ABOUT, CREDITS } from './about'
+import UpdateDownload from '../../components/UpdateDownload.vue'
+import { useUpdates } from '../../updates'
 
 /** The app's name and version, what it is, its license and links, where its data is kept, and the projects it is built on. */
 const version = ref('')
@@ -17,6 +19,10 @@ window.fraitube.getAppInfo().then((info) => {
 function openFolder(): void {
   window.fraitube.openDataFolder()
 }
+
+// The page checks for updates each time it opens.
+const { state: update, check } = useUpdates()
+check()
 </script>
 
 <template>
@@ -34,6 +40,36 @@ function openFolder(): void {
       >{{ version }}</span>
     </h1>
     <p>{{ ABOUT.description }}</p>
+
+    <h2>Updates</h2>
+    <div
+      class="updates"
+      aria-live="polite"
+    >
+      <span v-if="update.status === 'checking' || update.status === 'idle'">Checking for updates</span>
+      <span v-else-if="update.status === 'current'">You have the latest version.</span>
+      <template v-else-if="update.status === 'available' && update.latest">
+        <span>FraiTube {{ update.latest.version }} is available.</span>
+        <UpdateDownload />
+        <a
+          :href="update.latest.pageUrl"
+          target="_blank"
+          rel="noreferrer"
+        >What's new</a>
+      </template>
+      <span
+        v-else-if="update.status === 'failed'"
+        class="error"
+      >Updates could not be checked: {{ update.error }}</span>
+      <button
+        type="button"
+        class="secondary"
+        :disabled="update.status === 'checking'"
+        @click="check"
+      >
+        Check again
+      </button>
+    </div>
 
     <h2>License</h2>
     <p>
@@ -140,6 +176,33 @@ a {
 
 code {
   overflow-wrap: anywhere;
+}
+
+.updates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-block-end: 8px;
+}
+
+.secondary {
+  padding: 4px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.error {
+  color: #ff6b6b;
 }
 
 .action {

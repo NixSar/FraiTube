@@ -23,6 +23,7 @@ import { registerSponsorBlockHandlers } from './sponsorBlock'
 import { announceFeedProgress, registerSubscriptionHandlers } from './subscriptions'
 import { registerSyncHandlers, type SyncService } from './sync'
 import { createSubscriptionsStore, subscriptionsSchema } from './subscriptionsStore'
+import { registerUpdateHandlers } from './updates'
 import { DEFAULT_WINDOW_SIZE, fitWindowSize, MIN_WINDOW_SIZE } from './windowSize'
 import appIcon from '../../build/icon.png?asset'
 
@@ -200,7 +201,9 @@ void app.whenReady().then(() => {
   registerSearchHistoryHandlers(createSearchHistoryStore(storage), settings)
   registerSponsorBlockHandlers(settings, app.userAgentFallback)
   registerPipHandlers({ create: createPipWindow, load: loadAppPath, openAppWindow: createWindow })
+  const updates = registerUpdateHandlers(settings)
   createWindow()
+  updates.checkOnStart()
   sync = registerSyncHandlers({
     storage,
     settings,
