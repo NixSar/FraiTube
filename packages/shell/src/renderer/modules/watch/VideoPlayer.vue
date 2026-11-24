@@ -43,7 +43,7 @@ import {
   positionToSave,
   resumeSeconds
 } from '../../../shared/history'
-import { PlayerSettingKey, SUBTITLE_DEFAULTS } from '../../../shared/playerSettings'
+import { PlayerSettingKey, readDefaultQuality, startingQuality, SUBTITLE_DEFAULTS } from '../../../shared/playerSettings'
 import { categoryModes, SponsorBlockSettingKey } from '../../../shared/sponsorBlockSettings'
 import { bridgeFetch } from '../../net'
 import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
@@ -167,6 +167,8 @@ let reconnectAttempt = 0
 let lastTroubleAt = 0
 let hideTimer: ReturnType<typeof setTimeout> | undefined
 let autoTimer: ReturnType<typeof setTimeout> | undefined
+/** True once a quality was picked in the player's menu for the playing video; the Default quality setting then leaves it. */
+let qualityPicked = false
 let volumeTimer: ReturnType<typeof setTimeout> | undefined
 let frame = 0
 let resizeObserver: ResizeObserver | undefined
@@ -287,9 +289,9 @@ function savedVolume(): number {
   return numberSetting(PlayerSettingKey.volume, 100)
 }
 
-function defaultQualityHeight(): number {
-  const value = Number(settings[PlayerSettingKey.defaultQuality])
-  return Number.isFinite(value) && value > 0 ? value : 1080
+/** The quality the playing video starts at under the Default quality setting, from the qualities it has. */
+function defaultQualityChoice(): 'auto' | number {
+  return startingQuality(readDefaultQuality(settings[PlayerSettingKey.defaultQuality]), qualities.value.map((quality) => quality.height))
 }
 
 function isSupported(mimeType: string): boolean {
@@ -394,10 +396,10 @@ async function startPosition(playback: VideoPlayback): Promise<number> {
   }
 }
 
-/** The height auto quality aims for: the player's height in screen pixels, at least 360p, at most the default quality. */
+/** The height auto quality aims for: the player's height in screen pixels, at least 360p. */
 function autoHeight(): number {
   const screenHeight = (box.value?.clientHeight ?? 0) * window.devicePixelRatio
-  return Math.min(defaultQualityHeight(), Math.max(MIN_AUTO_HEIGHT, screenHeight))
+  return Math.max(MIN_AUTO_HEIGHT, screenHeight)
 }
 
 function wantedVideoFormat(): SabrFormat | undefined {
@@ -567,7 +569,20 @@ async function recover(resume?: boolean): Promise<void> {
 }
 
 function chooseQuality(value: string): void {
+  qualityPicked = true
   qualityChoice.value = value === 'auto' ? 'auto' : Number(value)
+  void applyQuality()
+}
+
+/**
+ * A changed Default quality setting moves the playing video to it, unless a quality was picked for the
+ * video in the menu. A player kept out of sight keeps its quality, as with auto quality.
+ */
+function applyDefaultQuality(): void {
+  if (qualityPicked || props.offPage || qualities.value.length === 0) {
+    return
+  }
+  qualityChoice.value = defaultQualityChoice()
   void applyQuality()
 }
 
@@ -578,7 +593,7 @@ function onBoxResize(): void {
 }
 
 /**
- * Auto quality follows the player's size and the quality cap. A player kept out of sight keeps its
+ * Auto quality follows the player's size. A player kept out of sight keeps its
  * quality, so the video plays on without a pause until the PiP window takes over.
  */
 function applyAutoQuality(): void {
@@ -671,6 +686,7 @@ async function load(): Promise<void> {
   clearTimeout(skipNoticeTimer)
   undoneSegments = new Set()
   qualityChoice.value = 'auto'
+  qualityPicked = false
   currentTime.value = 0
   bufferedEnd.value = 0
   waitingFrom = undefined
@@ -688,6 +704,7 @@ async function load(): Promise<void> {
   formats = listFormats(input)
   audioFormat = pickAudioFormat(formats, { isSupported })
   qualities.value = listQualities(formats, isSupported)
+  qualityChoice.value = defaultQualityChoice()
   const savedStart = await startPosition(result)
   if (id !== loadId) {
     return
@@ -1081,8 +1098,8 @@ watch(() => props.compact, (compact) => {
   }
 })
 
-// A new quality cap applies to the playing video when it picks its quality itself.
-watch(() => settings[PlayerSettingKey.defaultQuality], applyAutoQuality)
+// A new default quality applies to the playing video, unless a quality was picked for it in the menu.
+watch(() => settings[PlayerSettingKey.defaultQuality], applyDefaultQuality)
 
 // Turning SponsorBlock on or off applies to the playing video.
 watch(() => settings[SponsorBlockSettingKey.enabled], () => {
