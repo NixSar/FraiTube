@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.8 - 2026-11-24
+
+- Back and forward: arrows in the top bar, Alt+Left and Alt+Right, and the mouse side buttons. A page reached by going back or forward returns to where it was scrolled.
+- A search button in the search field.
+- New window on a video's page opens the start page, not the same video again.
+
 ## 0.9.7 - 2026-11-24
 
 - Update check: when FraiTube starts, a banner says when a newer version is out, and the About page checks for updates. Download fetches the installer from GitHub and checks it against GitHub's checksum. On Windows it can then install it, and on Linux it shows the AppImage in its folder. A setting in General turns off the check on start.
