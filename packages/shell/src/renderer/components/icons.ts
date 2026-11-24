@@ -62,6 +62,16 @@ export const ICONS = {
   exitFullscreen: [
     { d: 'M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5' }
   ],
+  search: [
+    { d: circle(10.5, 10.5, 6.5) },
+    { d: 'M15.5 15.5L20 20' }
+  ],
+  back: [
+    { d: 'M19 12H5M11 6l-6 6 6 6' }
+  ],
+  forward: [
+    { d: 'M5 12h14M13 6l6 6-6 6' }
+  ],
   pip: [
     { d: 'M4.5 4.5h15a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2z' },
     { d: 'M13 11h6a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-6a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1z', fill: true }

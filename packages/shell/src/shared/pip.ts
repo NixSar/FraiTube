@@ -77,6 +77,17 @@ export function isHandOver(value: unknown): value is HandOver {
     typeof paused === 'boolean'
 }
 
+/**
+ * A watch page's query without its start second "t" and subtitle track "cc", or undefined when it
+ * has neither. The page reads them once, so its history entry keeps neither.
+ */
+export function withoutStart<Value>(query: Record<string, Value>): Record<string, Value> | undefined {
+  if (!('t' in query) && !('cc' in query)) {
+    return undefined
+  }
+  return Object.fromEntries(Object.entries(query).filter(([key]) => key !== 't' && key !== 'cc'))
+}
+
 /** The start second from a page's "t" query value, or undefined when there is none. */
 export function startSecondsFrom(value: unknown): number | undefined {
   if (typeof value !== 'string' || !/^\d{1,7}$/.test(value)) {

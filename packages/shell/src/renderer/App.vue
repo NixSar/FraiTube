@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { FraiTubeModule, NavItem } from '@fraitube/app-api'
-import { computed, defineAsyncComponent, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
 import { videoIdFromLink } from '@fraitube/youtube/ids'
 import { splitNav } from './sideNav'
+import { newWindowPath, newWindowTitle } from './newWindow'
+import { canSearch, historySteps, keyStep, mouseStep, type Step } from './backForward'
+import { rememberScroll } from './scrollRestore'
 import AppIcon from './components/AppIcon.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import { isIconName } from './components/icons'
@@ -34,6 +37,49 @@ void router.isReady().then(() => {
 })
 /** A bare page, such as the PiP window's, shows alone. */
 const bare = computed(() => route.meta['bare'] === true)
+
+/** Where this window can go back or forward to, known again after every page change. */
+const steps = ref(historySteps(window.history.state))
+const removeAfterEach = router.afterEach(() => {
+  steps.value = historySteps(window.history.state)
+})
+
+function go(step: Step): void {
+  if (!bare.value && steps.value[step]) {
+    router.go(step === 'back' ? -1 : 1)
+  }
+}
+
+/** Alt+Left and Alt+Right go back and forward. */
+function onKeyDown(event: KeyboardEvent): void {
+  const step = keyStep(event)
+  if (step && !bare.value) {
+    event.preventDefault()
+    go(step)
+  }
+}
+
+/** The mouse's side buttons go back and forward. */
+function onMouseUp(event: MouseEvent): void {
+  const step = mouseStep(event)
+  if (step && !bare.value) {
+    event.preventDefault()
+    go(step)
+  }
+}
+
+/** The part of the window that scrolls: a page reached by a step back or forward returns to its place in it. */
+const content = useTemplateRef<HTMLElement>('content')
+const forgetScroll = rememberScroll(router, () => content.value)
+
+window.addEventListener('keydown', onKeyDown)
+window.addEventListener('mouseup', onMouseUp)
+onBeforeUnmount(() => {
+  removeAfterEach()
+  forgetScroll()
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('mouseup', onMouseUp)
+})
 
 // The search box shows the query of the search page being viewed.
 watch(() => route.query['q'], (q) => {
@@ -107,6 +153,9 @@ function onSearchKey(event: KeyboardEvent): void {
     if (past) {
       event.preventDefault()
       searchAgain(past)
+    } else if (!canSearch(query.value)) {
+      // With nothing to search for, the form does not submit, so the list closes here.
+      closeList()
     }
   } else if (event.key === 'Escape' && count > 0) {
     event.preventDefault()
@@ -145,7 +194,31 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
   >
     <UpdateBanner class="banner" />
     <header class="top-bar">
-      <span class="app-name">FraiTube</span>
+      <div class="top-start">
+        <div class="history-buttons">
+          <button
+            type="button"
+            class="history-button"
+            aria-label="Back"
+            title="Back (Alt+Left)"
+            :aria-disabled="!steps.back"
+            @click="go('back')"
+          >
+            <AppIcon name="back" />
+          </button>
+          <button
+            type="button"
+            class="history-button"
+            aria-label="Forward"
+            title="Forward (Alt+Right)"
+            :aria-disabled="!steps.forward"
+            @click="go('forward')"
+          >
+            <AppIcon name="forward" />
+          </button>
+        </div>
+        <span class="app-name">FraiTube</span>
+      </div>
       <form
         class="search"
         role="search"
@@ -168,6 +241,19 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
           @blur="closeList"
           @keydown="onSearchKey"
         >
+        <button
+          type="submit"
+          class="search-button"
+          aria-label="Search"
+          title="Search"
+          :disabled="!canSearch(query)"
+          @mousedown.prevent
+        >
+          <AppIcon
+            name="search"
+            :size="18"
+          />
+        </button>
         <ul
           v-show="shownSearches.length > 0"
           id="past-searches"
@@ -207,9 +293,9 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
       <button
         type="button"
         class="new-window"
-        title="Open this page in a new window"
+        :title="newWindowTitle(route.name)"
         aria-label="New window"
-        @click="openInNewWindow(route.fullPath)"
+        @click="openInNewWindow(newWindowPath(route.name, route.fullPath))"
       >
         <span class="new-window-label">New window</span>
         <span
@@ -265,7 +351,10 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
       </template>
     </nav>
 
-    <main class="content">
+    <main
+      ref="content"
+      class="content"
+    >
       <RouterView />
     </main>
     <component
@@ -369,12 +458,69 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
 
 .search input {
   inline-size: 100%;
-  padding: 7px 12px;
+  padding: 7px 40px 7px 12px;
   border: 1px solid var(--color-border);
   border-radius: 18px;
   background: var(--color-background);
   color: var(--color-text);
   font: inherit;
+}
+
+/* The search button sits at the end of the search field. */
+.search-button {
+  position: absolute;
+  inset-block: 3px;
+  inset-inline-end: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.search-button:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.search-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.top-start {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.history-button {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.history-button:hover:not([aria-disabled='true']) {
+  background: var(--color-hover);
+}
+
+/* A button with nowhere to go keeps the keyboard focus, greyed out. */
+.history-button[aria-disabled='true'] {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .app-name {
@@ -494,6 +640,14 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
 
   .app-name {
     font-size: 16px;
+  }
+
+  .top-start {
+    gap: 6px;
+  }
+
+  .history-button {
+    padding: 2px;
   }
 
   .search {

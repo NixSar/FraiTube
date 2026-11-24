@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, useTemplateRef, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { chapterIndexAt } from '@fraitube/player'
 import AboutSection from './AboutSection.vue'
 import ChapterList from './ChapterList.vue'
 import CommentsSection from './CommentsSection.vue'
 import WatchActions from './WatchActions.vue'
-import { startSecondsFrom, subtitlesFrom } from '../../../shared/pip'
+import { startSecondsFrom, subtitlesFrom, withoutStart } from '../../../shared/pip'
 import { controls, details, loadingVideo, openVideo, pageSlot, playback, playbackError } from './nowPlaying'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
 import WaitingMessage from '../../components/WaitingMessage.vue'
 
 const route = useRoute()
+const router = useRouter()
 const playerSlot = useTemplateRef<HTMLDivElement>('playerSlot')
 const currentChapter = computed(() => chapterIndexAt(details.value?.chapters ?? [], controls.value?.currentTime ?? 0))
 
@@ -19,10 +20,27 @@ function seekTo(seconds: number): void {
   controls.value?.seekTo(seconds)
 }
 
+/** The video whose "t" and "cc" were read and are being taken out of the address. */
+let readStartOf: string | undefined
+
 // "cc" is the subtitle track of a video coming back from the PiP window, empty for off.
+// "t" and "cc" are read once and then leave the address, so going back or forward to this page
+// resumes the video from its saved position.
 watch(() => [route.params['videoId'], route.query['t'], route.query['cc']], ([videoId, t, cc]) => {
-  if (typeof videoId === 'string') {
-    void openVideo(videoId, startSecondsFrom(t), subtitlesFrom(cc))
+  if (typeof videoId !== 'string') {
+    return
+  }
+  const cleaned = withoutStart(route.query)
+  if (!cleaned && readStartOf === videoId) {
+    // The address of the video already opened, now without "t" and "cc".
+    readStartOf = undefined
+    return
+  }
+  readStartOf = undefined
+  void openVideo(videoId, startSecondsFrom(t), subtitlesFrom(cc))
+  if (cleaned) {
+    readStartOf = videoId
+    void router.replace({ params: route.params, query: cleaned })
   }
 }, { immediate: true })
 
