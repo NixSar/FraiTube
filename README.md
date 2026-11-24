@@ -1,6 +1,10 @@
 # FraiTube
 
-A desktop app for watching YouTube videos on Windows and Linux that needs no account. You create subscriptions, history and watch positions locally, they stay on your own computers and, if you want, sync across all of them.
+A desktop app for watching YouTube videos on Windows and Linux that needs no account. You create subscriptions, history, favorites and watch positions locally, they stay on your own computers and, if you want, sync across all of them.
+
+**[Download FraiTube for Windows and Linux](https://github.com/NixSar/FraiTube/releases/latest)**
+
+![New videos from your subscriptions, with Continue watching in the side column](docs/screenshots/new-videos.png)
 
 ## Why FraiTube
 
@@ -25,6 +29,15 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - Import subscriptions and history from FreeTube and NewPipe, merged with what you already have.
 - Sync through any shared folder, such as one kept by Syncthing, Nextcloud or Dropbox, or through rclone to any cloud storage it supports.
 - Backups to a single 7z file.
+
+## Screenshots
+
+![A video playing](docs/screenshots/watch.png)
+
+| | |
+| --- | --- |
+| ![Subscriptions](docs/screenshots/subscriptions.png) | ![Favorites](docs/screenshots/favorites.png) |
+| ![Search results](docs/screenshots/search.png) | ![Settings](docs/screenshots/settings.png) |
 
 ## Privacy
 
