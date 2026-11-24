@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.5 - 2026-11-24
+
+- Channel pages: click a channel's name or icon to see its newest videos, with a search field that searches inside the channel.
+- Live streams: a Live filter in search, live playback, and the live streams of subscribed channels in New videos.
+- A setting for how often New videos refreshes, from every hour to every 24 hours, or only on Refresh.
+- Filters on New videos: videos or live streams, unwatched or in progress, date, channel and title.
+- Search history under the search box. It syncs, and Settings can turn it off, set how many searches are kept, and clear it.
+- Screenshots and a download link in the README.
+
 ## 0.9.0 - 2026-11-23
 
 - Favorites: add a video from its ⋮ menu and find it on the Favorites page.
