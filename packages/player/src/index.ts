@@ -3,6 +3,8 @@
  * a pair of byte streams (video and audio) from a start time, and the player buffers them.
  */
 
+import { firstCoveredTime } from './live'
+
 export interface TrackStreams {
   video: ReadableStream<ArrayBufferView>
   audio: ReadableStream<ArrayBufferView>
@@ -13,6 +15,11 @@ export interface PlayerSource {
   videoMimeType: string
   audioMimeType: string
   durationSeconds: number
+  /**
+   * A live stream: it opens at the live edge whatever the start time, its data carries the stream's own
+   * times, and the playhead moves to wherever its data starts. Seeking outside the buffered data does nothing.
+   */
+  live?: boolean
   open(startTimeMs: number): TrackStreams
 }
 
@@ -185,7 +192,7 @@ export function attachPlayer(video: HTMLVideoElement, initialSource: PlayerSourc
     if (run && run.startSeconds === time) {
       return
     }
-    if (videoBuffer && audioBuffer && isBuffered(videoBuffer, time) && isBuffered(audioBuffer, time)) {
+    if (source.live || (videoBuffer && audioBuffer && isBuffered(videoBuffer, time) && isBuffered(audioBuffer, time))) {
       return
     }
     // Restarts are chained so rapid seeks never run two streams at once; only the latest seek starts one.
@@ -237,6 +244,30 @@ export function attachPlayer(video: HTMLVideoElement, initialSource: PlayerSourc
     }
   }
 
+  /**
+   * Moves the playhead of a live stream to where the running stream's data starts, at or after `from`,
+   * once both buffers hold it. Fails with the stream's own error when it ends before that.
+   */
+  async function moveToLiveData(from: number, current: Run): Promise<void> {
+    let ended = false
+    void current.done.then(() => {
+      ended = true
+    })
+    while (!destroyed && run === current) {
+      const time = videoBuffer && audioBuffer ? firstCoveredTime([videoBuffer.buffered, audioBuffer.buffered], from) : undefined
+      if (time !== undefined) {
+        if (video.currentTime !== time) {
+          video.currentTime = time
+        }
+        return
+      }
+      if (ended) {
+        throw current.error ?? new Error('The stream ended early')
+      }
+      await delay(COVERAGE_POLL_MS)
+    }
+  }
+
   async function switchTo(next: PlayerSource, time: number): Promise<void> {
     const previous = source
     source = next
@@ -248,11 +279,17 @@ export function attachPlayer(video: HTMLVideoElement, initialSource: PlayerSourc
     if (destroyed) {
       return
     }
-    await trimForSwitch(videoBuffer, previous.videoMimeType, next.videoMimeType, time)
-    await trimForSwitch(audioBuffer, previous.audioMimeType, next.audioMimeType, time)
+    // A live stream carries on from its live edge, so none of the old data is kept.
+    const keepUntil = next.live ? 0 : time
+    await trimForSwitch(videoBuffer, previous.videoMimeType, next.videoMimeType, keepUntil)
+    await trimForSwitch(audioBuffer, previous.audioMimeType, next.audioMimeType, keepUntil)
     start(time)
     const current = run
     if (!current) {
+      return
+    }
+    if (next.live) {
+      await moveToLiveData(0, current)
       return
     }
     await waitForCoverage(time, current)
@@ -264,11 +301,18 @@ export function attachPlayer(video: HTMLVideoElement, initialSource: PlayerSourc
 
   mediaSource.addEventListener('sourceopen', () => {
     try {
-      if (source.durationSeconds > 0) {
+      if (source.durationSeconds > 0 && !source.live) {
         mediaSource.duration = source.durationSeconds
       }
       videoBuffer = mediaSource.addSourceBuffer(source.videoMimeType)
       audioBuffer = mediaSource.addSourceBuffer(source.audioMimeType)
+      if (source.live) {
+        start(0)
+        if (run) {
+          restart = moveToLiveData(0, run).catch(report)
+        }
+        return
+      }
       const startSeconds = options.startSeconds ?? 0
       start(startSeconds)
       if (startSeconds > 0) {
@@ -302,6 +346,7 @@ export function attachPlayer(video: HTMLVideoElement, initialSource: PlayerSourc
   }
 }
 
+export * from './live'
 export * from './subtitles'
 export * from './volume'
 export * from './recovery'

@@ -15,6 +15,12 @@ export const subscriptionsModule = defineModule({
       name: 'channels',
       title: 'Subscriptions',
       component: () => import('./ChannelsPage.vue')
+    },
+    {
+      path: '/channel/:channelId',
+      name: 'channel',
+      title: 'Channel',
+      component: () => import('./ChannelPage.vue')
     }
   ],
   nav: [

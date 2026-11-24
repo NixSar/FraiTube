@@ -15,6 +15,7 @@ import { useSubscriptions } from '../subscriptions/store'
 const FILTERS: { value: SearchFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'videos', label: 'Videos' },
+  { value: 'live', label: 'Live' },
   { value: 'channels', label: 'Channels' }
 ]
 
@@ -111,19 +112,24 @@ watch(() => [route.query['q'], route.query['type']], () => {
           :key="channel.id"
           class="channel"
         >
-          <ChannelAvatar
-            :name="channel.name || channel.id"
-            :avatar="normalizeAvatar(channel.avatar) || avatarOf(channel.id)"
-            :size="64"
-          />
-          <div class="channel-text">
-            <div class="name">
-              {{ channel.name }}
+          <RouterLink
+            class="channel-link"
+            :to="{ name: 'channel', params: { channelId: channel.id } }"
+          >
+            <ChannelAvatar
+              :name="channel.name || channel.id"
+              :avatar="normalizeAvatar(channel.avatar) || avatarOf(channel.id)"
+              :size="64"
+            />
+            <div class="channel-text">
+              <div class="name">
+                {{ channel.name }}
+              </div>
+              <div class="meta">
+                {{ cardDetails([channel.handle, channel.subscribersText]) }}
+              </div>
             </div>
-            <div class="meta">
-              {{ cardDetails([channel.handle, channel.subscribersText]) }}
-            </div>
-          </div>
+          </RouterLink>
           <SubscribeButton :channel="{ id: channel.id, name: channel.name || channel.id, avatar: normalizeAvatar(channel.avatar) }" />
         </li>
       </ul>
@@ -224,6 +230,20 @@ ul {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 16px;
+}
+
+.channel-link {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px 16px;
+  min-inline-size: 0;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.channel-link:hover .name {
+  text-decoration: underline;
 }
 
 .channel-text {

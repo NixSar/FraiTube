@@ -23,6 +23,9 @@ const bridge: FraiTubeBridge = {
   search(request) {
     return ipcRenderer.invoke(IpcChannel.search, request)
   },
+  getChannelVideos(request) {
+    return ipcRenderer.invoke(IpcChannel.channelVideos, request)
+  },
   getCaptions(videoId, trackId) {
     return ipcRenderer.invoke(IpcChannel.captions, videoId, trackId)
   },

@@ -18,7 +18,8 @@ export interface SabrInput {
 }
 
 export interface OpenOptions {
-  startTimeMs: number
+  /** Left out for a live stream, which then starts at its live edge. */
+  startTimeMs?: number
   videoFormat: SabrFormat
   audioFormat: SabrFormat
   fetch: typeof fetch
@@ -134,7 +135,7 @@ export function openStream(input: SabrInput, options: OpenOptions): OpenedStream
   const { videoStream, audioStream } = stream.start({
     videoFormat: options.videoFormat,
     audioFormat: options.audioFormat,
-    startTimeMs: options.startTimeMs,
+    ...(options.startTimeMs !== undefined && { startTimeMs: options.startTimeMs }),
     isPostLiveDvr: false,
     // The player pauses reading while it has enough buffered, which must not count as a stall.
     stallDetectionMs: 10 * 60_000

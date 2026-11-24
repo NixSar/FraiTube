@@ -14,7 +14,7 @@ import {
 } from '../../packages/shell/src/main/feed'
 import { TEST_DATA_DIR } from '../paths'
 import type { FeedProgress } from '../../packages/shell/src/shared/bridge'
-import { channelFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
+import { channelFeedUrl, liveFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
 import { GAMERS_NEXUS, HARDWARE_UNBOXED, LEVEL1_TECHS, rssFeed } from '../subscriptions/fixtures'
 
 const gamersNexus = { id: GAMERS_NEXUS, name: 'Gamers Nexus', avatar: '' }
@@ -23,6 +23,11 @@ const level1 = { id: LEVEL1_TECHS, name: 'Level1Techs', avatar: '' }
 
 function feedWithVideo(id: string, published: string): string {
   return `<feed><entry><yt:videoId>${id}</yt:videoId><title>${id}</title><published>${published}</published></entry></feed>`
+}
+
+/** True for a channel's live-streams feed, which every channel load also asks for. */
+function isLiveFeed(url: string): boolean {
+  return url.includes('playlist_id=UULV')
 }
 
 describe('createFeedService', () => {
@@ -54,11 +59,60 @@ describe('createFeedService', () => {
     expect(feed.videos).toEqual([])
   })
 
+  it('adds each channel\'s live streams, newest first, listing each video once', async () => {
+    const live = `<feed>
+      <entry><yt:videoId>gnlivestrm1</yt:videoId><title>Live</title><published>2030-01-01T10:00:00Z</published></entry>
+      <entry><yt:videoId>l8qxFcaLSM4</yt:videoId><title>Again</title><published>2020-01-01T10:00:00Z</published></entry>
+    </feed>`
+    const fetchText: FetchText = async (url) => {
+      if (url === videosFeedUrl(GAMERS_NEXUS)) return { status: 200, text: rssFeed }
+      if (url === liveFeedUrl(GAMERS_NEXUS)) return { status: 200, text: live }
+      return { status: 500, text: '' }
+    }
+    const feed = await createFeedService(fetchText).get([gamersNexus], false)
+
+    expect(feed.videos.map((video) => video.id)).toEqual(['gnlivestrm1', 'l8qxFcaLSM4', 'KNVKzPHgg4M'])
+    expect(feed.videos[0]).toMatchObject({ channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus' })
+    expect(feed.failedChannels).toEqual([])
+  })
+
+  it('does not count a channel without live streams as failed', async () => {
+    const feed = await createFeedService(async (url) => (isLiveFeed(url) ? { status: 404, text: '' } : { status: 200, text: rssFeed })).get([gamersNexus], false)
+    expect(feed.videos.map((video) => video.id)).toEqual(['l8qxFcaLSM4', 'KNVKzPHgg4M'])
+    expect(feed.failedChannels).toEqual([])
+  })
+
+  it('fetches again once the feed is older than the refresh time, and with no refresh time only when asked', async () => {
+    let time = 0
+    let maxAge: number | undefined = 3 * 60 * 60_000
+    const requested: string[] = []
+    const service = createFeedService(async (url) => {
+      requested.push(url)
+      return { status: 200, text: rssFeed }
+    }, () => time, undefined, undefined, () => maxAge)
+    const fetches = (): number => requested.filter((url) => !isLiveFeed(url)).length
+
+    await service.get([gamersNexus], false)
+    time = 3 * 60 * 60_000 - 1
+    await service.get([gamersNexus], false)
+    expect(fetches()).toBe(1)
+    time = 3 * 60 * 60_000
+    await service.get([gamersNexus], false)
+    expect(fetches()).toBe(2)
+
+    maxAge = undefined
+    time = 1000 * 60 * 60_000
+    await service.get([gamersNexus], false)
+    expect(fetches()).toBe(2)
+    await service.get([gamersNexus], true)
+    expect(fetches()).toBe(3)
+  })
+
   it('fetches at most once an hour unless refreshed', async () => {
     let time = 0
     let requests = 0
-    const service = createFeedService(async () => {
-      requests++
+    const service = createFeedService(async (url) => {
+      if (!isLiveFeed(url)) requests++
       return { status: 200, text: rssFeed }
     }, () => time)
 
@@ -108,8 +162,8 @@ describe('createFeedService', () => {
 
     it('fetches again after a restart once the saved feed is an hour old or ahead of the clock', async () => {
       let requests = 0
-      const fetchText: FetchText = async () => {
-        requests++
+      const fetchText: FetchText = async (url) => {
+        if (!isLiveFeed(url)) requests++
         return { status: 200, text: rssFeed }
       }
       const saved: SavedFeed = { fetchedAt: 5000, channels: [[GAMERS_NEXUS, []]] }
@@ -125,7 +179,7 @@ describe('createFeedService', () => {
         requested.push(url)
         return { status: 200, text: rssFeed }
       }, () => 10, undefined, cache).get([gamersNexus, level1], false)
-      expect(requested).toEqual([videosFeedUrl(LEVEL1_TECHS)])
+      expect(requested).toEqual([videosFeedUrl(LEVEL1_TECHS), liveFeedUrl(LEVEL1_TECHS)])
       expect(cache.saved?.channels.map(([id]) => id)).toEqual([GAMERS_NEXUS, LEVEL1_TECHS])
     })
 
@@ -162,18 +216,19 @@ describe('createFeedService', () => {
     const requested: string[] = []
     const service = createFeedService(async (url) => {
       requested.push(url)
+      if (isLiveFeed(url)) return { status: 404, text: '' }
       return { status: 200, text: url === videosFeedUrl(LEVEL1_TECHS) ? feedWithVideo('level1tech1', '2026-11-22T10:00:00Z') : rssFeed }
     }, () => time)
 
     const first = await service.get([gamersNexus], false)
     time = 1000
     const added = await service.get([gamersNexus, level1], false)
-    expect(requested).toEqual([videosFeedUrl(GAMERS_NEXUS), videosFeedUrl(LEVEL1_TECHS)])
+    expect(requested).toEqual([videosFeedUrl(GAMERS_NEXUS), liveFeedUrl(GAMERS_NEXUS), videosFeedUrl(LEVEL1_TECHS), liveFeedUrl(LEVEL1_TECHS)])
     expect(added.videos.map((video) => video.id)).toContain('level1tech1')
     expect(added.updatedAt).toBe(first.updatedAt)
 
     const removed = await service.get([level1], false)
-    expect(requested).toHaveLength(2)
+    expect(requested).toHaveLength(4)
     expect(removed.videos.map((video) => video.id)).toEqual(['level1tech1'])
   })
 
@@ -181,6 +236,7 @@ describe('createFeedService', () => {
     let time = 0
     const progress: FeedProgress[] = []
     const service = createFeedService(async (url) => {
+      if (isLiveFeed(url)) return { status: 404, text: '' }
       time += 200
       return { status: 200, text: url === videosFeedUrl(LEVEL1_TECHS) ? feedWithVideo('level1tech1', '2026-11-22T10:00:00Z') : rssFeed }
     }, () => time, (update) => progress.push(update))
@@ -216,8 +272,8 @@ describe('createFeedService', () => {
 
   it('shares one load between requests made while it runs', async () => {
     let requests = 0
-    const service = createFeedService(async () => {
-      requests++
+    const service = createFeedService(async (url) => {
+      if (!isLiveFeed(url)) requests++
       await new Promise((resolve) => setTimeout(resolve, 10))
       return { status: 200, text: rssFeed }
     })

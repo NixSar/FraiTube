@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { isAllowedProxyUrl, isAppPath, isCommentsRequest, isProxyRequest, isSearchRequest, MAX_PATH_LENGTH, MAX_QUERY_LENGTH } from '../../packages/shell/src/shared/bridge'
+import {
+  isAllowedProxyUrl,
+  isAppPath,
+  isChannelVideosRequest,
+  isCommentsRequest,
+  isProxyRequest,
+  isSearchRequest,
+  MAX_PATH_LENGTH,
+  MAX_QUERY_LENGTH
+} from '../../packages/shell/src/shared/bridge'
+import { isChannelId } from '../../packages/subscriptions/src/channels'
 
 describe('isAllowedProxyUrl', () => {
   it('allows YouTube and its video servers over https', () => {
@@ -56,6 +66,7 @@ describe('isSearchRequest', () => {
   it('accepts queries with a known filter and an optional token', () => {
     expect(isSearchRequest({ query: 'cats', filter: 'all' })).toBe(true)
     expect(isSearchRequest({ query: 'cats', filter: 'channels', continuation: token })).toBe(true)
+    expect(isSearchRequest({ query: 'news', filter: 'live' })).toBe(true)
   })
 
   it('refuses empty or long queries, unknown filters and bad tokens', () => {
@@ -64,6 +75,38 @@ describe('isSearchRequest', () => {
     expect(isSearchRequest({ query: 'cats', filter: 'playlists' })).toBe(false)
     expect(isSearchRequest({ query: 'cats', filter: 'all', continuation: 'abc' })).toBe(false)
     expect(isSearchRequest(null)).toBe(false)
+  })
+})
+
+describe('isChannelVideosRequest', () => {
+  const token = '123e4567-e89b-42d3-a456-426614174000'
+  const channelId = 'UCabcdefghijklmnopqrstuv'
+
+  it('accepts a channel with an optional ID from an earlier page', () => {
+    expect(isChannelVideosRequest({ channelId })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, continuation: token })).toBe(true)
+  })
+
+  it('accepts a search inside the channel, and refuses blank, long or non-text queries', () => {
+    expect(isChannelVideosRequest({ channelId, query: 'labour' })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, query: 'labour', continuation: token })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, query: 'a'.repeat(MAX_QUERY_LENGTH) })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, query: '   ' })).toBe(false)
+    expect(isChannelVideosRequest({ channelId, query: 'a'.repeat(MAX_QUERY_LENGTH + 1) })).toBe(false)
+    expect(isChannelVideosRequest({ channelId, query: 7 })).toBe(false)
+  })
+
+  it('refuses a missing channel, bad tokens and anything that is not a request', () => {
+    expect(isChannelVideosRequest({})).toBe(false)
+    expect(isChannelVideosRequest({ channelId: 42 })).toBe(false)
+    expect(isChannelVideosRequest({ channelId, continuation: 'abc' })).toBe(false)
+    expect(isChannelVideosRequest(null)).toBe(false)
+  })
+
+  it('leaves the channel ID itself to the channel ID check, which refuses malformed ones', () => {
+    expect(isChannelVideosRequest({ channelId: 'not a channel' })).toBe(true)
+    expect(isChannelId('not a channel')).toBe(false)
+    expect(isChannelId(channelId)).toBe(true)
   })
 })
 

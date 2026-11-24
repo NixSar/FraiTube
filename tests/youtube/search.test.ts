@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRawResults } from '../../packages/youtube/src/search'
+import { FILTER_OPTIONS, parseRawResults } from '../../packages/youtube/src/search'
 
 const runs = (text: string) => ({ runs: [{ text }] })
 
@@ -44,6 +44,13 @@ const channelRenderer = {
     navigationEndpoint: { browseEndpoint: { browseId: 'UCzyxwvutsrqponmlkjihgfe' } }
   }
 }
+
+describe('FILTER_OPTIONS', () => {
+  it('asks for live videos with the Live filter', () => {
+    expect(FILTER_OPTIONS.live).toEqual({ type: 'video', features: ['live'] })
+    expect(FILTER_OPTIONS.videos).toEqual({ type: 'video' })
+  })
+})
 
 describe('parseRawResults', () => {
   it('separates videos and channels and skips other items', () => {

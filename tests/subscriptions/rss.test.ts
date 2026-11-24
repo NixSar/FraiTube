@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { channelFeedUrl, decodeXmlText, parseRssFeed, videosFeedUrl } from '../../packages/subscriptions/src/rss'
+import { channelFeedUrl, decodeXmlText, liveFeedUrl, parseRssFeed, videosFeedUrl } from '../../packages/subscriptions/src/rss'
 import { GAMERS_NEXUS, rssFeed } from './fixtures'
 
 describe('feed URLs', () => {
   it('uses the videos-only playlist feed, with the channel feed as fallback', () => {
     expect(videosFeedUrl(GAMERS_NEXUS)).toBe('https://www.youtube.com/feeds/videos.xml?playlist_id=UULFhIs72whgZI9w6d6FhwGGHA')
     expect(channelFeedUrl(GAMERS_NEXUS)).toBe(`https://www.youtube.com/feeds/videos.xml?channel_id=${GAMERS_NEXUS}`)
+  })
+
+  it('uses the live-streams playlist feed for live streams', () => {
+    expect(liveFeedUrl(GAMERS_NEXUS)).toBe('https://www.youtube.com/feeds/videos.xml?playlist_id=UULVhIs72whgZI9w6d6FhwGGHA')
   })
 })
 

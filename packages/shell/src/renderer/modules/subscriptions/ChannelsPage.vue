@@ -110,11 +110,16 @@ async function remove(channelId: string): Promise<void> {
         :key="channel.id"
         class="channel"
       >
-        <ChannelAvatar
-          :name="channel.name"
-          :avatar="channel.avatar"
-        />
-        <span class="name">{{ channel.name }}</span>
+        <RouterLink
+          class="channel-link"
+          :to="{ name: 'channel', params: { channelId: channel.id } }"
+        >
+          <ChannelAvatar
+            :name="channel.name"
+            :avatar="channel.avatar"
+          />
+          <span class="name">{{ channel.name }}</span>
+        </RouterLink>
         <button
           type="button"
           class="unsubscribe"
@@ -174,8 +179,21 @@ async function remove(channelId: string): Promise<void> {
   border-block-end: 1px solid var(--color-border);
 }
 
-.name {
+.channel-link {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: 12px 16px;
+  min-inline-size: 0;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.channel-link:hover .name {
+  text-decoration: underline;
+}
+
+.name {
   min-inline-size: 0;
   font-weight: 600;
   overflow-wrap: anywhere;

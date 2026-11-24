@@ -13,8 +13,11 @@ import type { YtConfig } from './page'
 import { createPageLoader } from './pageLoader'
 import { playerRequestBody } from './playerRequest'
 import { createSearcher } from './search'
+import { createChannelReader } from './channel'
 import type {
   CaptionCue,
+  ChannelVideosPage,
+  ChannelVideosRequest,
   ClientInfo,
   CommentPage,
   CommentSort,
@@ -56,6 +59,8 @@ export interface YoutubeClient {
   getComments(request: CommentsRequest): Promise<CommentPage>
   /** The icon of a channel, or an empty string when YouTube gives none. */
   getChannelIcon(channelId: string): Promise<string>
+  /** A channel and its videos newest first, or its videos that match a search, or the next page of either. */
+  getChannelVideos(request: ChannelVideosRequest): Promise<ChannelVideosPage>
   /** Fresh streaming data for a video loaded earlier with getPlayback, when its SABR server asks for it. */
   reloadStreaming(videoId: string, reloadToken?: string): Promise<StreamingReload>
 }
@@ -413,6 +418,7 @@ export function createYoutube(options: YoutubeOptions): YoutubeClient {
 
   const getInnertube = createInnertubeLoader(fetchFunction, options.userAgent)
   const searcher = createSearcher(getInnertube)
+  const channels = createChannelReader(getInnertube)
 
   async function getChannelIcon(channelId: string): Promise<string> {
     const innertube = await getInnertube()
@@ -426,6 +432,7 @@ export function createYoutube(options: YoutubeOptions): YoutubeClient {
     getCaptions,
     getComments,
     getChannelIcon,
+    getChannelVideos: (request) => channels.videos(request),
     reloadStreaming,
     search: (request) => searcher.search(request)
   }

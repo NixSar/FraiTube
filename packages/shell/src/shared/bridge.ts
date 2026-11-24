@@ -2,6 +2,8 @@ import type { SettingValue } from '@fraitube/app-api/settings'
 import type { Channel, Feed, ImportSummary, Subscription } from '@fraitube/subscriptions/types'
 import type {
   CaptionCue,
+  ChannelVideosPage,
+  ChannelVideosRequest,
   CommentPage,
   CommentsRequest,
   SearchPage,
@@ -28,6 +30,7 @@ export const IpcChannel = {
   setSetting: 'settings:set',
   settingChanged: 'settings:changed',
   search: 'youtube:search',
+  channelVideos: 'youtube:channel-videos',
   captions: 'youtube:captions',
   comments: 'youtube:comments',
   reloadStreaming: 'youtube:reload-streaming',
@@ -122,6 +125,8 @@ export interface FraiTubeBridge {
   onSettingChanged(listener: (key: string, value: SettingValue) => void): () => void
   /** Searches YouTube, or loads the next page of an earlier search. */
   search(request: SearchRequest): Promise<SearchPage>
+  /** A channel and its videos newest first, or its videos that match a search, or the next page of either. */
+  getChannelVideos(request: ChannelVideosRequest): Promise<ChannelVideosPage>
   /** Loads one subtitle track of a video that was loaded with getPlayback. */
   getCaptions(videoId: string, trackId: string): Promise<CaptionCue[]>
   /** Loads comments, more comments or replies of a video loaded with getPlayback or getVideoDetails. */
@@ -268,7 +273,7 @@ export function isProxyRequest(value: unknown): value is ProxyRequest {
 /** Longest search query accepted from a page. */
 export const MAX_QUERY_LENGTH = 200
 
-const SEARCH_FILTERS = new Set(['all', 'videos', 'channels'])
+const SEARCH_FILTERS = new Set(['all', 'videos', 'live', 'channels'])
 const CONTINUATION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function isSearchRequest(value: unknown): value is SearchRequest {
@@ -280,6 +285,20 @@ export function isSearchRequest(value: unknown): value is SearchRequest {
     request.query.trim().length > 0 &&
     request.query.length <= MAX_QUERY_LENGTH &&
     typeof request.filter === 'string' && SEARCH_FILTERS.has(request.filter) &&
+    (request.continuation === undefined || (typeof request.continuation === 'string' && CONTINUATION.test(request.continuation)))
+}
+
+/**
+ * The channel ID is checked separately; a search query is not blank and not too long, and the
+ * continuation is an ID the main process handed out.
+ */
+export function isChannelVideosRequest(value: unknown): value is ChannelVideosRequest {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const request = value as Partial<ChannelVideosRequest>
+  return typeof request.channelId === 'string' &&
+    (request.query === undefined || (typeof request.query === 'string' && request.query.trim().length > 0 && request.query.length <= MAX_QUERY_LENGTH)) &&
     (request.continuation === undefined || (typeof request.continuation === 'string' && CONTINUATION.test(request.continuation)))
 }
 

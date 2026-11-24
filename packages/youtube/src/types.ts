@@ -169,7 +169,7 @@ export interface PoTokenRequest {
 
 export type MintPoToken = (request: PoTokenRequest) => Promise<string>
 
-export type SearchFilter = 'all' | 'videos' | 'channels'
+export type SearchFilter = 'all' | 'videos' | 'live' | 'channels'
 
 export interface SearchRequest {
   query: string
@@ -198,6 +198,31 @@ export interface ChannelResult {
   handle: string
   subscribersText: string
   avatar: string
+}
+
+/** A channel as its page shows it on top. */
+export interface ChannelInfo {
+  id: string
+  name: string
+  /** For example @smartereveryday, or empty when YouTube gives none. */
+  handle: string
+  subscribersText: string
+  avatar: string
+}
+
+export interface ChannelVideosRequest {
+  channelId: string
+  /** Searches inside the channel instead of listing its newest videos. */
+  query?: string
+  /** Token from an earlier page of the same channel or search, to load the next one. */
+  continuation?: string
+}
+
+/** A page of a channel's videos, newest first, or of its search results. The first page also carries the channel. */
+export interface ChannelVideosPage {
+  channel?: ChannelInfo
+  videos: VideoResult[]
+  continuation?: string
 }
 
 export interface SearchPage {

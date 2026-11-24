@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { isChannelId } from '@fraitube/subscriptions'
 import type { VideoAbout } from '@fraitube/youtube/types'
 import { cardDetails } from '../../components/videoCard'
 import ChannelAvatar from '../subscriptions/ChannelAvatar.vue'
@@ -24,21 +26,27 @@ const stats = computed(() => {
   <section class="about">
     <div class="owner">
       <div class="channel">
-        <ChannelAvatar
-          :name="channelName || channelId"
-          :avatar="about.channelIcon || avatarOf(channelId)"
-          :size="40"
-        />
-        <div
-          class="names"
-          :title="channelName"
+        <component
+          :is="isChannelId(channelId) ? RouterLink : 'div'"
+          class="channel-link"
+          :to="isChannelId(channelId) ? { name: 'channel', params: { channelId } } : undefined"
         >
-          <span class="name">{{ channelName }}</span>
-          <span
-            v-if="about.subscribersText"
-            class="subscribers"
-          >{{ about.subscribersText }}</span>
-        </div>
+          <ChannelAvatar
+            :name="channelName || channelId"
+            :avatar="about.channelIcon || avatarOf(channelId)"
+            :size="40"
+          />
+          <div
+            class="names"
+            :title="channelName"
+          >
+            <span class="name">{{ channelName }}</span>
+            <span
+              v-if="about.subscribersText"
+              class="subscribers"
+            >{{ about.subscribersText }}</span>
+          </div>
+        </component>
         <SubscribeButton
           v-if="channelId"
           :channel="{ id: channelId, name: channelName || channelId, avatar: about.channelIcon }"
@@ -108,11 +116,29 @@ const stats = computed(() => {
   flex: none;
 }
 
-.channel > .names {
+.channel > .channel-link {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-inline-size: 0;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.channel-link > :deep(*) {
+  flex: none;
+}
+
+.channel-link > .names {
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
   min-inline-size: 0;
+}
+
+a.channel-link:hover .name {
+  text-decoration: underline;
 }
 
 .name,

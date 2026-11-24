@@ -1,7 +1,17 @@
 import { ipcMain, session, type Session } from 'electron'
 import { createYoutube } from '@fraitube/youtube'
 import { isVideoId } from '@fraitube/youtube/ids'
-import { IpcChannel, isCommentsRequest, isProxyRequest, isReloadToken, isSearchRequest, isTrackId, type ProxyResponse } from '../shared/bridge'
+import { isChannelId } from '@fraitube/subscriptions'
+import {
+  IpcChannel,
+  isChannelVideosRequest,
+  isCommentsRequest,
+  isProxyRequest,
+  isReloadToken,
+  isSearchRequest,
+  isTrackId,
+  type ProxyResponse
+} from '../shared/bridge'
 import { fromAppWindow } from './appWindow'
 import {
   CAPTION_URL_PATTERNS,
@@ -106,6 +116,13 @@ export function registerNetworkHandlers(userAgent: string): YoutubeAccess {
       throw new Error('Request refused')
     }
     return youtube.search({ query: request.query.trim(), filter: request.filter, continuation: request.continuation })
+  })
+
+  ipcMain.handle(IpcChannel.channelVideos, (event, request: unknown) => {
+    if (!fromAppWindow(event) || !isChannelVideosRequest(request) || !isChannelId(request.channelId)) {
+      throw new Error('Request refused')
+    }
+    return youtube.getChannelVideos({ channelId: request.channelId, query: request.query?.trim(), continuation: request.continuation })
   })
 
   ipcMain.handle(IpcChannel.captions, (event, videoId: unknown, trackId: unknown) => {

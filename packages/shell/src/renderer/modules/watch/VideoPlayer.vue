@@ -324,9 +324,10 @@ function savePosition(): void {
   window.fraitube.saveHistoryPosition(trackedVideoId, positionToSave(element.currentTime, element.ended, trackedDuration))
 }
 
+/** A live stream keeps no position, so its playing time is never saved. */
 function onPlaying(): void {
   buffering.value = false
-  trackedVideoId = props.playback.videoId
+  trackedVideoId = props.playback.isLive ? undefined : props.playback.videoId
   trackedDuration = props.playback.durationSeconds
 }
 
@@ -387,7 +388,7 @@ async function startPosition(playback: VideoPlayback): Promise<number> {
       channelAvatar: normalizeAvatar(playback.about.channelIcon),
       durationSeconds: playback.durationSeconds
     })
-    return resumeEnabled() ? resumeSeconds(entry.positionSeconds, playback.durationSeconds) : 0
+    return resumeEnabled() && !playback.isLive ? resumeSeconds(entry.positionSeconds, playback.durationSeconds) : 0
   } catch {
     return 0
   }
@@ -412,12 +413,14 @@ function buildSource(videoFormat: SabrFormat | undefined): PlayerSource | undefi
     return undefined
   }
   const videoId = props.playback.videoId
+  const live = props.playback.isLive
   return {
     videoMimeType: videoFormat.mimeType,
     audioMimeType: audio.mimeType,
     durationSeconds: duration.value,
+    live,
     open: (startTimeMs) => openStream(sabr, {
-      startTimeMs,
+      ...(!live && { startTimeMs }),
       videoFormat,
       audioFormat: audio,
       fetch: bridgeFetch,
@@ -689,8 +692,10 @@ async function load(): Promise<void> {
   if (id !== loadId) {
     return
   }
-  startVideo(props.startSeconds ?? savedStart)
-  void loadSegments(result.videoId, id)
+  startVideo(result.isLive ? 0 : props.startSeconds ?? savedStart)
+  if (!result.isLive) {
+    void loadSegments(result.videoId, id)
+  }
 
   const startTrack = startingSubtitleTrack(
     props.startSubtitles,
@@ -713,9 +718,10 @@ function togglePlay(): void {
   }
 }
 
+/** A live stream plays at its live edge and does not seek. */
 function seekTo(seconds: number): void {
   const element = videoElement.value
-  if (!element) return
+  if (!element || props.playback.isLive) return
   element.currentTime = Math.min(Math.max(0, seconds), duration.value || seconds)
   currentTime.value = element.currentTime
   savePosition()
@@ -1084,7 +1090,7 @@ watch(() => settings[SponsorBlockSettingKey.enabled], () => {
   segmentsError.value = ''
   segmentMuted.value = false
   skippedSegment.value = undefined
-  if (input) {
+  if (input && !props.playback.isLive) {
     void loadSegments(props.playback.videoId, loadId)
   }
 })
@@ -1223,6 +1229,7 @@ onBeforeUnmount(() => {
       @focusout="onControlsFocusOut"
     >
       <div
+        v-if="!playback.isLive"
         ref="seekBar"
         class="seek"
         @mousemove="onSeekHover"
@@ -1320,7 +1327,11 @@ onBeforeUnmount(() => {
           </span>
         </span>
         <span
-          v-if="compact || shownParts.time"
+          v-if="playback.isLive"
+          class="time live"
+        >LIVE</span>
+        <span
+          v-else-if="compact || shownParts.time"
           class="time"
         >{{ formatTime(shownTime) }} / {{ formatTime(duration) }}</span>
         <span

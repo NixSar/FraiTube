@@ -1,6 +1,6 @@
 # FraiTube
 
-A desktop app for watching YouTube videos on Windows and Linux that needs no account. You create subscriptions, history, favorites and watch positions locally, they stay on your own computers and, if you want, sync across all of them.
+A desktop app for watching YouTube videos on Windows and Linux that **needs no account**. You create subscriptions, history, favorites and watch positions locally, they stay on your own computers and, if you want, **sync across all of them**.
 
 **[Download FraiTube for Windows and Linux](https://github.com/NixSar/FraiTube/releases/latest)**
 
@@ -18,17 +18,17 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 
 ## Features
 
-- Search and watch, with chapters, frame previews on the timeline and SponsorBlock segment skipping.
-- Subtitles in the font, size, color and position you choose, and volume up to 200%.
-- The description, channel and comments under every video.
-- Subscriptions without an account, with new videos fetched at most once an hour or when you press Refresh.
-- History that remembers where you stopped, with progress shown on every video card and Continue watching for unfinished videos.
-- Favorites for the videos you want to keep at hand.
-- Picture-in-picture in its own always-on-top window.
-- As many windows as you like.
-- Import subscriptions and history from FreeTube and NewPipe, merged with what you already have.
-- Sync through any shared folder, such as one kept by Syncthing, Nextcloud or Dropbox, or through rclone to any cloud storage it supports.
-- Backups to a single 7z file.
+- **Search and watch**, with chapters, frame previews on the timeline and **SponsorBlock** segment skipping.
+- **Subtitles** in the font, size, color and position you choose, and **volume up to 200%**.
+- The **description, channel and comments** under every video.
+- **Subscriptions without an account**, with new videos fetched every hour or at an interval of up to 24 hours that you choose, or only when you press Refresh.
+- **History** that remembers where you stopped, with progress shown on every video card and **Continue watching** for unfinished videos.
+- **Favorites** for the videos you want to keep at hand.
+- **Picture-in-picture** in its own always-on-top window.
+- **As many windows** as you like.
+- **Import subscriptions and history** from FreeTube and NewPipe, merged with what you already have.
+- **Sync** through any shared folder, such as one kept by Syncthing, Nextcloud or Dropbox, or through **rclone** to any cloud storage it supports.
+- **Backups** to a single 7z file.
 
 ## Screenshots
 

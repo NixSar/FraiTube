@@ -5,6 +5,11 @@ export function videosFeedUrl(channelId: string): string {
   return `https://www.youtube.com/feeds/videos.xml?playlist_id=UULF${channelId.slice(2)}`
 }
 
+/** The channel's feed of live streams: running, ended and scheduled ones. */
+export function liveFeedUrl(channelId: string): string {
+  return `https://www.youtube.com/feeds/videos.xml?playlist_id=UULV${channelId.slice(2)}`
+}
+
 /** The channel's full feed, used when the videos feed does not exist. */
 export function channelFeedUrl(channelId: string): string {
   return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`

@@ -21,7 +21,7 @@ describe('settingsLayout', () => {
       'Subtitle background opacity, in percent, 0 for no background'
     ])
     expect(labels('Appearance')).toEqual(['Theme', 'Accent color'])
-    expect(labels('General')).toEqual(['Open the app at'])
+    expect(labels('General')).toEqual(['Open the app at', 'Refresh New videos'])
   })
 
   it('leaves out hidden settings and empty sections, and keeps panels with their section', () => {

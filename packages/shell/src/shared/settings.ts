@@ -21,16 +21,37 @@ export const START_PAGES = [
   { value: 'history', label: 'History' }
 ]
 
+/** How often New videos fetches from YouTube again: every so many hours, or only when asked. */
+export const FEED_REFRESH_CHOICES = [
+  { value: '1', label: 'Every hour' },
+  ...[2, 3, 6, 12, 24].map((hours) => ({ value: String(hours), label: `Every ${hours} hours` })),
+  { value: 'off', label: 'Off' }
+]
+
 export const SettingKey = {
   theme: 'appearance.theme',
   accent: 'appearance.accent',
   startPage: 'appearance.startPage',
+  feedRefresh: 'subscriptions.refresh',
   windowBounds: 'window.bounds'
 } as const
 
 /** The route the app opens at for a saved start page value, New videos when the value is not one of the tabs. */
 export function startPageRoute(value: unknown): string {
   return START_PAGES.find((page) => page.value === value)?.value ?? 'subscriptions'
+}
+
+/**
+ * How old a fetched feed may be before opening New videos fetches it again, for a saved refresh value:
+ * undefined for Off, where it fetches only on Refresh or for a new subscription, and an hour for a value
+ * that is not one of the choices.
+ */
+export function feedMaxAgeMs(value: unknown): number | undefined {
+  if (value === 'off') {
+    return undefined
+  }
+  const choice = FEED_REFRESH_CHOICES.find((option) => option.value === value)
+  return Number(choice?.value ?? 1) * 60 * 60_000
 }
 
 /** Settings owned by the shell itself. */
@@ -40,6 +61,7 @@ export const shellSettings: SettingsSection = {
     { key: SettingKey.theme, label: 'Theme', type: 'choice', options: THEMES, default: 'system' },
     { key: SettingKey.accent, label: 'Accent color', type: 'color', default: '#3d7bd9' },
     { key: SettingKey.startPage, label: 'Open the app at', group: 'General', type: 'choice', options: START_PAGES, default: 'subscriptions' },
+    { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'General', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },
     {
       key: SettingKey.windowBounds,
       label: 'Window size and position',

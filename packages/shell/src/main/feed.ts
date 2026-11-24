@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { rename, writeFile } from 'node:fs/promises'
-import { channelFeedUrl, mapWithLimit, mergeFeeds, parseRssFeed, videosFeedUrl } from '@fraitube/subscriptions'
+import { channelFeedUrl, liveFeedUrl, mapWithLimit, mergeFeeds, parseRssFeed, videosFeedUrl } from '@fraitube/subscriptions'
 import type { Channel, Feed, FeedVideo } from '@fraitube/subscriptions/types'
 import type { FeedProgress } from '../shared/bridge'
 
 /** Feeds fetched at the same time. */
 export const FEED_CONCURRENCY = 4
-/** How long a fetched feed is shown before new videos are fetched from YouTube again. */
+/** How long a fetched feed is shown before new videos are fetched from YouTube again, unless the feed service is given another time. */
 export const FEED_MAX_AGE_MS = 60 * 60_000
 /** While channels are fetched, the channels fetched so far are sent at most this often. */
 export const FEED_PROGRESS_INTERVAL_MS = 500
@@ -90,14 +90,15 @@ export function createFeedCacheFile(file: string): FeedCache {
  * While channels are fetched, onProgress gets the channels fetched so far: right after the first
  * channel, then at most every FEED_PROGRESS_INTERVAL_MS. Videos come only with the finished feed.
  * The feed is saved in the cache after each fetch and read from it on the first request, so a feed
- * fetched under an hour ago is shown again after a restart. The saved feed holds subscribed channels
- * only.
+ * that is not too old yet is shown again after a restart. The saved feed holds subscribed channels
+ * only. maxAgeMs gives how old a feed may be before it is fetched again, undefined for never.
  */
 export function createFeedService(
   fetchText: FetchText,
   now: () => number = Date.now,
   onProgress?: (progress: FeedProgress) => void,
-  cache?: FeedCache
+  cache?: FeedCache,
+  maxAgeMs: () => number | undefined = () => FEED_MAX_AGE_MS
 ): FeedService {
   /** Each fetched channel's videos, undefined for a channel that failed, and when they were fetched. */
   let cached: { fetchedAt: number; channels: Map<string, FeedVideo[] | undefined> } | undefined
@@ -134,25 +135,43 @@ export function createFeedService(
     return dropped
   }
 
-  /** One channel's videos, or undefined when its feed could not be loaded. */
-  async function loadChannel(channel: Channel): Promise<FeedVideo[] | undefined> {
+  /** A feed's videos, with the channel filled in where the feed leaves it out. */
+  function readFeed(text: string, channel: Channel): FeedVideo[] {
+    return parseRssFeed(text).map((video) => ({
+      ...video,
+      channelId: video.channelId || channel.id,
+      channelName: video.channelName || channel.name
+    }))
+  }
+
+  /** One channel's videos, or undefined when its videos feed could not be loaded. */
+  async function loadVideos(channel: Channel): Promise<FeedVideo[] | undefined> {
     try {
       let response = await fetchText(videosFeedUrl(channel.id))
       // Channels without a videos tab have no videos feed; their full feed still works.
       if (response.status === 404) {
         response = await fetchText(channelFeedUrl(channel.id))
       }
-      if (response.status !== 200) {
-        return undefined
-      }
-      return parseRssFeed(response.text).map((video) => ({
-        ...video,
-        channelId: video.channelId || channel.id,
-        channelName: video.channelName || channel.name
-      }))
+      return response.status === 200 ? readFeed(response.text, channel) : undefined
     } catch {
       return undefined
     }
+  }
+
+  /** One channel's live streams; a channel without live streams has no live feed and gives none. */
+  async function loadLiveStreams(channel: Channel): Promise<FeedVideo[]> {
+    try {
+      const response = await fetchText(liveFeedUrl(channel.id))
+      return response.status === 200 ? readFeed(response.text, channel) : []
+    } catch {
+      return []
+    }
+  }
+
+  /** One channel's videos and live streams, newest first, or undefined when its videos feed could not be loaded. */
+  async function loadChannel(channel: Channel): Promise<FeedVideo[] | undefined> {
+    const [videos, liveStreams] = await Promise.all([loadVideos(channel), loadLiveStreams(channel)])
+    return videos && mergeFeeds([videos, liveStreams])
   }
 
   /** The feed of the given channels from what was fetched. A channel not fetched yet is not a failed one. */
@@ -181,15 +200,16 @@ export function createFeedService(
   }
 
   /**
-   * Fetches every channel when asked to or when the last fetch is an hour old; otherwise only
-   * channels never fetched, such as a new subscription. A removed subscription needs no fetch, and
-   * what was fetched for it is dropped, also from the saved feed.
+   * Fetches every channel when asked to, when nothing was fetched yet, or when the last fetch is
+   * older than maxAgeMs; otherwise only channels never fetched, such as a new subscription. A removed
+   * subscription needs no fetch, and what was fetched for it is dropped, also from the saved feed.
    */
   async function load(channels: readonly Channel[], refresh: boolean): Promise<Feed> {
     const dropped = dropOthers(channels)
     // A fetch time ahead of the clock, as after the clock was turned back, counts as old.
     const age = cached ? now() - cached.fetchedAt : -1
-    if (refresh || !cached || age < 0 || age >= FEED_MAX_AGE_MS) {
+    const maxAge = maxAgeMs()
+    if (refresh || !cached || age < 0 || (maxAge !== undefined && age >= maxAge)) {
       const next = { fetchedAt: now(), channels: new Map<string, FeedVideo[] | undefined>() }
       await fetchInto(next, channels)
       cached = next

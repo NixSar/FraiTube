@@ -1,11 +1,17 @@
 import { randomUUID } from 'node:crypto'
-import { Innertube, Parser, YTNodes, type Helpers, type YT } from 'youtubei.js'
+import { Innertube, Parser, YTNodes, type Helpers, type Types, type YT } from 'youtubei.js'
 import type { ChannelResult, SearchFilter, SearchPage, SearchRequest, VideoResult } from './types'
 
 type YTNode = Helpers.YTNode
 type Thumbnail = { url: string; width: number }
 
-const FILTER_TYPES = { all: 'all', videos: 'video', channels: 'channel' } as const
+/** What YouTube is asked for with each filter. */
+export const FILTER_OPTIONS: Record<SearchFilter, Types.SearchFilters> = {
+  all: { type: 'all' },
+  videos: { type: 'video' },
+  live: { type: 'video', features: ['live'] },
+  channels: { type: 'channel' }
+}
 /** How many unfinished searches keep their next page available. */
 const REMEMBERED_SEARCHES = 50
 
@@ -24,7 +30,7 @@ function text(value: { toString(): string } | undefined | null): string {
   return value?.toString().trim() ?? ''
 }
 
-function toVideo(node: YTNodes.Video): VideoResult {
+export function toVideo(node: YTNodes.Video): VideoResult {
   return {
     id: node.video_id,
     title: text(node.title),
@@ -99,7 +105,7 @@ export function createSearcher(getInnertube: () => Promise<Innertube>): Searcher
       pending.delete(request.continuation)
       return previous.getContinuation()
     }
-    return (await getInnertube()).search(request.query, { type: FILTER_TYPES[filter] })
+    return (await getInnertube()).search(request.query, FILTER_OPTIONS[filter])
   }
 
   return {
