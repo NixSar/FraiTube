@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.9 - 2026-11-25
+
+- ARM64 versions for Windows and Linux: FraiTube-0.9.9-setup-arm64.exe for Windows on ARM and FraiTube-0.9.9-aarch64.AppImage for ARM64 Linux. The update check downloads the file for the computer's processor.
+
 ## 0.9.8 - 2026-11-24
 
 - Back and forward: arrows in the top bar, Alt+Left and Alt+Right, and the mouse side buttons. A page reached by going back or forward returns to where it was scrolled.
