@@ -11,6 +11,7 @@ import { usePaging } from '../../components/paging'
 import { useWatchProgress } from '../history/progress'
 import SubscribeButton from '../subscriptions/SubscribeButton.vue'
 import { useSubscriptions } from '../subscriptions/store'
+import { searchMemory } from './searchMemory'
 
 const FILTERS: { value: SearchFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -23,6 +24,8 @@ const route = useRoute()
 const { avatarOf } = useSubscriptions()
 const videos = ref<VideoResult[]>([])
 const channels = ref<ChannelResult[]>([])
+// Kept with the search's results; this page does not show them.
+const shorts = ref<VideoResult[]>([])
 const continuation = ref<string>()
 const loading = ref(false)
 const error = ref('')
@@ -45,25 +48,35 @@ async function load(more: boolean): Promise<void> {
   if (!query) {
     return
   }
+  const filter = currentFilter()
   const id = more ? searchId : ++searchId
   if (!more) {
-    videos.value = []
-    channels.value = []
-    continuation.value = undefined
+    const kept = searchMemory.get(query, filter)
+    videos.value = kept?.videos ?? []
+    channels.value = kept?.channels ?? []
+    shorts.value = kept?.shorts ?? []
+    continuation.value = kept?.continuation
+    error.value = ''
+    if (kept) {
+      loading.value = false
+      return
+    }
   }
   loading.value = true
   error.value = ''
 
   try {
-    const page = await window.fraitube.search({ query, filter: currentFilter(), continuation: more ? continuation.value : undefined })
+    const page = await window.fraitube.search({ query, filter, continuation: more ? continuation.value : undefined })
     if (id !== searchId) {
       return
     }
-    const seenVideos = new Set(videos.value.map((video) => video.id))
+    const seenVideos = new Set([...videos.value, ...shorts.value].map((video) => video.id))
     const seenChannels = new Set(channels.value.map((channel) => channel.id))
     videos.value.push(...page.videos.filter((video) => !seenVideos.has(video.id)))
+    shorts.value.push(...page.shorts.filter((video) => !seenVideos.has(video.id)))
     channels.value.push(...page.channels.filter((channel) => !seenChannels.has(channel.id)))
     continuation.value = page.continuation
+    searchMemory.keep(query, filter, { videos: videos.value, channels: channels.value, shorts: shorts.value, continuation: continuation.value })
   } catch (cause) {
     if (id === searchId) {
       error.value = cause instanceof Error ? cause.message : String(cause)

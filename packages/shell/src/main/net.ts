@@ -9,6 +9,7 @@ import {
   isProxyRequest,
   isReloadToken,
   isSearchRequest,
+  isSuggestionText,
   isTrackId,
   type ProxyResponse
 } from '../shared/bridge'
@@ -69,6 +70,7 @@ export function registerNetworkHandlers(userAgent: string): YoutubeAccess {
   const youtubeSession = createYoutubeSession(userAgent)
   const youtubeFetch: typeof fetch = (input, init) => youtubeSession.fetch(input instanceof URL ? input.href : input, init)
   const youtube = createYoutube({ userAgent, fetch: youtubeFetch, mintPoToken: createPoTokenMinter(userAgent) })
+  youtube.startSession()
 
   ipcMain.handle(IpcChannel.fetch, async (event, request: unknown): Promise<ProxyResponse> => {
     if (!fromAppWindow(event) || !isProxyRequest(request)) {
@@ -116,6 +118,13 @@ export function registerNetworkHandlers(userAgent: string): YoutubeAccess {
       throw new Error('Request refused')
     }
     return youtube.search({ query: request.query.trim(), filter: request.filter, continuation: request.continuation })
+  })
+
+  ipcMain.handle(IpcChannel.searchSuggestions, (event, text: unknown) => {
+    if (!fromAppWindow(event) || !isSuggestionText(text)) {
+      throw new Error('Request refused')
+    }
+    return youtube.getSearchSuggestions(text)
   })
 
   ipcMain.handle(IpcChannel.channelVideos, (event, request: unknown) => {

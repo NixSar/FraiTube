@@ -42,7 +42,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 
 ## Privacy
 
-FraiTube connects to YouTube's and Google's servers to find and play videos, to the SponsorBlock server when you turn SponsorBlock on, and to GitHub to check for a newer version when it starts and on its About page; "Check for updates when FraiTube starts" in Settings turns off the check on start. It has no account, no tracking and no usage reports. Your subscriptions, history and settings stay on your computers and in the sync folder or rclone remote you choose.
+FraiTube connects to YouTube's and Google's servers to find and play videos, to the SponsorBlock server when you turn SponsorBlock on, and to GitHub to check for a newer version when it starts and on its About page; "Check for updates when FraiTube starts" in Settings turns off the check on start. While you type in the search box, the typed text goes to YouTube's suggestion service; "Suggest searches while typing" in Settings turns this off, and then nothing you type leaves FraiTube until you search. It has no account, no tracking and no usage reports. Your subscriptions, history and settings stay on your computers and in the sync folder or rclone remote you choose.
 
 ## Download
 

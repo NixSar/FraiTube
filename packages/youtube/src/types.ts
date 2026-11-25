@@ -228,5 +228,7 @@ export interface ChannelVideosPage {
 export interface SearchPage {
   videos: VideoResult[]
   channels: ChannelResult[]
+  /** The page's shorts, kept apart from its videos. */
+  shorts: VideoResult[]
   continuation?: string
 }

@@ -32,6 +32,7 @@ export const IpcChannel = {
   setSetting: 'settings:set',
   settingChanged: 'settings:changed',
   search: 'youtube:search',
+  searchSuggestions: 'youtube:search-suggestions',
   channelVideos: 'youtube:channel-videos',
   captions: 'youtube:captions',
   comments: 'youtube:comments',
@@ -138,6 +139,8 @@ export interface FraiTubeBridge {
   onSettingChanged(listener: (key: string, value: SettingValue) => void): () => void
   /** Searches YouTube, or loads the next page of an earlier search. */
   search(request: SearchRequest): Promise<SearchPage>
+  /** The searches YouTube suggests for a typed text, at most MAX_QUERY_LENGTH characters. Absent where the app gives no suggestions. */
+  getSearchSuggestions?(text: string): Promise<string[]>
   /** A channel and its videos newest first, or its videos that match a search, or the next page of either. */
   getChannelVideos(request: ChannelVideosRequest): Promise<ChannelVideosPage>
   /** Loads one subtitle track of a video that was loaded with getPlayback. */
@@ -319,6 +322,11 @@ export function isSearchRequest(value: unknown): value is SearchRequest {
     request.query.length <= MAX_QUERY_LENGTH &&
     typeof request.filter === 'string' && SEARCH_FILTERS.has(request.filter) &&
     (request.continuation === undefined || (typeof request.continuation === 'string' && CONTINUATION.test(request.continuation)))
+}
+
+/** A typed text to get search suggestions for: any text up to MAX_QUERY_LENGTH characters. */
+export function isSuggestionText(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= MAX_QUERY_LENGTH
 }
 
 /**

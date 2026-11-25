@@ -8,6 +8,7 @@ import {
   isPastSearch,
   isSearchQuery,
   matchingSearches,
+  searchEntries,
   searchesKept,
   searchHistorySettings,
   searchKey,
@@ -146,6 +147,41 @@ describe('matchingSearches', () => {
   })
 })
 
+describe('searchEntries', () => {
+  const past = [
+    { query: 'minecraft mods', searchedAt: 2 },
+    { query: 'minecraft', searchedAt: 1 }
+  ]
+  const entries = (list: { kind: string; query: string }[]): string[] => list.map((entry) => `${entry.kind}:${entry.query}`)
+
+  it('shows the past searches first, then the suggestions that are not among them', () => {
+    expect(entries(searchEntries(past, ['Minecraft', 'minecraft  MODS', 'minecraft song']))).toEqual([
+      'past:minecraft mods',
+      'past:minecraft',
+      'suggestion:minecraft song'
+    ])
+  })
+
+  it('leaves out suggestions found anywhere in the history, and repeated ones', () => {
+    const history = [...past, { query: 'minecraft song', searchedAt: 0 }]
+    expect(entries(searchEntries(past.slice(0, 1), ['minecraft song', 'minecraft', 'minecraft live', 'Minecraft Live'], history))).toEqual([
+      'past:minecraft mods',
+      'suggestion:minecraft live'
+    ])
+  })
+
+  it('shows at most 10 entries, or the given number, and no blank suggestions', () => {
+    const many = Array.from({ length: 14 }, (_, index) => `minecraft ${index}`)
+    expect(searchEntries(past, many)).toHaveLength(10)
+    expect(entries(searchEntries(past, ['  ', 'minecraft live'], past, 3))).toEqual([
+      'past:minecraft mods',
+      'past:minecraft',
+      'suggestion:minecraft live'
+    ])
+    expect(searchEntries([], [])).toEqual([])
+  })
+})
+
 describe('searchesKept', () => {
   it('is the chosen number, and 50 for a value that is not one of the choices', () => {
     expect(searchesKept('25')).toBe(25)
@@ -165,10 +201,17 @@ describe('searchHistorySettings', () => {
     expect(kept?.type === 'choice' ? kept.options.map((option) => option.value) : []).toEqual(['25', '50', '100', '200'])
   })
 
+  it('suggests searches while typing by default, synced like the other settings', () => {
+    const suggest = searchHistorySettings.settings.find((setting) => setting.key === SearchHistorySettingKey.suggest)
+    expect(suggest).toMatchObject({ label: 'Suggest searches while typing', type: 'boolean', default: true })
+    expect(suggest && 'local' in suggest ? suggest.local : undefined).toBeUndefined()
+  })
+
   it('is checked and stored by the main process', () => {
     const keys = allSettingDefinitions().map((setting) => setting.key)
     expect(keys).toContain(SearchHistorySettingKey.remember)
     expect(keys).toContain(SearchHistorySettingKey.kept)
+    expect(keys).toContain(SearchHistorySettingKey.suggest)
   })
 })
 

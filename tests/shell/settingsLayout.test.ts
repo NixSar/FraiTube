@@ -22,7 +22,7 @@ describe('settingsLayout', () => {
     ])
     expect(labels('Appearance')).toEqual(['Theme', 'Accent color'])
     expect(labels('General')).toEqual(['Open the app at', 'Refresh New videos', 'Check for updates when FraiTube starts'])
-    expect(labels('Search history')).toEqual(['Remember searches', 'Searches kept'])
+    expect(labels('Search history')).toEqual(['Remember searches', 'Searches kept', 'Suggest searches while typing'])
   })
 
   it('leaves out hidden settings and empty sections, and keeps panels with their section', () => {

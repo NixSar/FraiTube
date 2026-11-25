@@ -11,8 +11,9 @@ import AppIcon from './components/AppIcon.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import { isIconName } from './components/icons'
 import { settings } from './settings'
-import { matchingSearches, SearchHistorySettingKey, type PastSearch } from '../shared/searchHistory'
+import { matchingSearches, searchEntries, SearchHistorySettingKey, type PastSearch, type SearchEntry } from '../shared/searchHistory'
 import { usePastSearches } from './modules/searchHistory/store'
+import { createSuggester } from './searchSuggestions'
 
 const props = defineProps<{
   nav: NavItem[]
@@ -89,21 +90,70 @@ watch(() => route.query['q'], (q) => {
 }, { immediate: true })
 
 const pastSearches = usePastSearches()
-/** Whether the past searches show under the search box, while it has the focus. */
+/** Whether the past searches and suggestions show under the search box, while it has the focus. */
 const listOpen = ref(false)
-/** The past search picked with the arrow keys, -1 for none. */
+/** The entry picked with the arrow keys, -1 for none. */
 const highlighted = ref(-1)
-const shownSearches = computed(() =>
-  listOpen.value && settings[SearchHistorySettingKey.remember] !== false ? matchingSearches(pastSearches.value, query.value) : [])
+
+/** Whether YouTube is asked for suggestions while typing. While it is off, nothing typed leaves the app before a search. */
+const suggestOn = computed(() =>
+  settings[SearchHistorySettingKey.suggest] !== false && window.fraitube.getSearchSuggestions !== undefined)
+/** The suggestions for the last typed text that has an answer. */
+const suggestions = ref<string[]>([])
+const suggester = createSuggester(
+  (text) => window.fraitube.getSearchSuggestions?.(text) ?? Promise.resolve([]),
+  (_text, answer) => {
+    suggestions.value = answer
+  }
+)
+
+function askSuggestions(): void {
+  if (suggestOn.value) {
+    suggester.type(query.value)
+  }
+}
+
+function dropSuggestions(): void {
+  suggester.stop()
+  suggestions.value = []
+}
+
+watch(query, () => {
+  if (listOpen.value) {
+    askSuggestions()
+  }
+})
+watch(suggestOn, (on) => {
+  if (on) {
+    if (listOpen.value) {
+      askSuggestions()
+    }
+  } else {
+    dropSuggestions()
+  }
+})
+onBeforeUnmount(dropSuggestions)
+
+const shownSearches = computed((): SearchEntry[] => {
+  if (!listOpen.value) {
+    return []
+  }
+  const remember = settings[SearchHistorySettingKey.remember] !== false
+  const past = remember ? matchingSearches(pastSearches.value, query.value) : []
+  const suggested = suggestOn.value && query.value.trim() ? suggestions.value : []
+  return searchEntries(past, suggested, remember ? pastSearches.value : [])
+})
 
 function openList(): void {
   listOpen.value = true
   highlighted.value = -1
+  askSuggestions()
 }
 
 function closeList(): void {
   listOpen.value = false
   highlighted.value = -1
+  dropSuggestions()
 }
 
 /** A YouTube video link opens the video; anything else is searched and saved in the search history. */
@@ -124,8 +174,9 @@ function search(): void {
   }
 }
 
-function searchAgain(past: PastSearch): void {
-  query.value = past.query
+/** Searches a past search or a suggestion, which then joins the search history. */
+function searchEntry(entry: SearchEntry): void {
+  query.value = entry.query
   search()
 }
 
@@ -133,7 +184,7 @@ function removePastSearch(past: PastSearch): void {
   window.fraitube.removeSearch(past.query).catch(() => undefined)
 }
 
-/** The arrow keys move through the past searches, Enter searches the picked one and Escape closes the list. */
+/** The arrow keys move through the entries, Enter searches the picked one and Escape closes the list. */
 function onSearchKey(event: KeyboardEvent): void {
   const count = shownSearches.value.length
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -143,16 +194,16 @@ function onSearchKey(event: KeyboardEvent): void {
       return
     }
     if (count > 0) {
-      // Past the last search or before the first, the typed text is back, with no search picked.
+      // Past the last entry or before the first, the typed text is back, with no entry picked.
       const next = highlighted.value + (event.key === 'ArrowDown' ? 1 : -1)
       highlighted.value = next >= count ? -1 : next < -1 ? count - 1 : next
       event.preventDefault()
     }
   } else if (event.key === 'Enter') {
-    const past = shownSearches.value[highlighted.value]
-    if (past) {
+    const entry = shownSearches.value[highlighted.value]
+    if (entry) {
       event.preventDefault()
-      searchAgain(past)
+      searchEntry(entry)
     } else if (!canSearch(query.value)) {
       // With nothing to search for, the form does not submit, so the list closes here.
       closeList()
@@ -259,31 +310,32 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
           id="past-searches"
           class="past-searches"
           role="listbox"
-          aria-label="Past searches"
+          aria-label="Past and suggested searches"
         >
           <li
-            v-for="(past, index) in shownSearches"
+            v-for="(entry, index) in shownSearches"
             :id="`past-search-${index}`"
-            :key="past.query"
+            :key="`${entry.kind}:${entry.query}`"
             role="option"
             class="past-search"
             :class="{ highlighted: index === highlighted }"
             :aria-selected="index === highlighted"
             @mousedown.prevent
-            @click="searchAgain(past)"
+            @click="searchEntry(entry)"
           >
             <AppIcon
-              name="history"
+              :name="entry.kind === 'past' ? 'history' : 'search'"
               class="past-search-icon"
             />
-            <span class="past-search-text">{{ past.query }}</span>
+            <span class="past-search-text">{{ entry.query }}</span>
             <button
+              v-if="entry.kind === 'past'"
               type="button"
               class="past-search-remove"
               tabindex="-1"
-              :aria-label="`Remove ${past.query} from search history`"
+              :aria-label="`Remove ${entry.query} from search history`"
               title="Remove from search history"
-              @click.stop="removePastSearch(past)"
+              @click.stop="removePastSearch(entry.past)"
             >
               &times;
             </button>

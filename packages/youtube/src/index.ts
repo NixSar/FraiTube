@@ -13,6 +13,7 @@ import type { YtConfig } from './page'
 import { createPageLoader } from './pageLoader'
 import { playerRequestBody } from './playerRequest'
 import { createSearcher } from './search'
+import { suggestSearches } from './suggestions'
 import { createChannelReader } from './channel'
 import type {
   CaptionCue,
@@ -53,6 +54,10 @@ export interface YoutubeClient {
   refreshPoToken(videoId: string): Promise<string>
   /** Searches YouTube, or loads the next page of an earlier search. */
   search(request: SearchRequest): Promise<SearchPage>
+  /** Sets up the session that search and channel pages use, so the first search does not wait for it. */
+  startSession(): void
+  /** The searches YouTube suggests for a typed text; none for empty text or text over 200 characters. */
+  getSearchSuggestions(text: string): Promise<string[]>
   /** Loads one caption track of a video loaded earlier with getPlayback. */
   getCaptions(videoId: string, trackId: string): Promise<CaptionCue[]>
   /** Loads comments, more comments or replies of a video loaded earlier with getPlayback, or whose details it gave. */
@@ -434,6 +439,11 @@ export function createYoutube(options: YoutubeOptions): YoutubeClient {
     getChannelIcon,
     getChannelVideos: (request) => channels.videos(request),
     reloadStreaming,
-    search: (request) => searcher.search(request)
+    search: (request) => searcher.search(request),
+    startSession() {
+      // A failed start is tried again by the first search, which then reports it.
+      getInnertube().catch(() => undefined)
+    },
+    getSearchSuggestions: (text) => suggestSearches(getInnertube, text)
   }
 }

@@ -6,6 +6,7 @@ import {
   isCommentsRequest,
   isProxyRequest,
   isSearchRequest,
+  isSuggestionText,
   MAX_PATH_LENGTH,
   MAX_QUERY_LENGTH
 } from '../../packages/shell/src/shared/bridge'
@@ -75,6 +76,17 @@ describe('isSearchRequest', () => {
     expect(isSearchRequest({ query: 'cats', filter: 'playlists' })).toBe(false)
     expect(isSearchRequest({ query: 'cats', filter: 'all', continuation: 'abc' })).toBe(false)
     expect(isSearchRequest(null)).toBe(false)
+  })
+})
+
+describe('isSuggestionText', () => {
+  it('accepts text of up to the search box length, empty text included, and refuses other values', () => {
+    expect(isSuggestionText('mine')).toBe(true)
+    expect(isSuggestionText('')).toBe(true)
+    expect(isSuggestionText('a'.repeat(MAX_QUERY_LENGTH))).toBe(true)
+    expect(isSuggestionText('a'.repeat(MAX_QUERY_LENGTH + 1))).toBe(false)
+    expect(isSuggestionText(5)).toBe(false)
+    expect(isSuggestionText(undefined)).toBe(false)
   })
 })
 
