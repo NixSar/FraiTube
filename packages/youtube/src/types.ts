@@ -169,7 +169,7 @@ export interface PoTokenRequest {
 
 export type MintPoToken = (request: PoTokenRequest) => Promise<string>
 
-export type SearchFilter = 'all' | 'videos' | 'live' | 'channels'
+export type SearchFilter = 'all' | 'videos' | 'live' | 'channels' | 'shorts'
 
 export interface SearchRequest {
   query: string
@@ -190,6 +190,8 @@ export interface VideoResult {
   publishedText: string
   thumbnail: string
   isLive: boolean
+  /** True for a short, on a channel page; search results keep their shorts in a list of their own. */
+  isShort?: boolean
 }
 
 export interface ChannelResult {
@@ -210,10 +212,15 @@ export interface ChannelInfo {
   avatar: string
 }
 
+/** The tabs of a channel page that list videos. */
+export type ChannelTab = 'videos' | 'shorts'
+
 export interface ChannelVideosRequest {
   channelId: string
   /** Searches inside the channel instead of listing its newest videos. */
   query?: string
+  /** Lists the channel's shorts instead of its videos; a search covers both. */
+  tab?: ChannelTab
   /** Token from an earlier page of the same channel or search, to load the next one. */
   continuation?: string
 }

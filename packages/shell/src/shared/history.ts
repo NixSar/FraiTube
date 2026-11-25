@@ -30,6 +30,11 @@ export interface HistoryVideo {
   /** The channel's icon; empty when unknown, and missing in entries saved before icons were kept. */
   channelAvatar?: string
   durationSeconds: number
+  /**
+   * True for a video opened from a short's card or a Shorts link. Missing for every other video, and in
+   * entries saved before the mark was kept, which count as videos.
+   */
+  short?: boolean
 }
 
 export interface HistoryEntry extends HistoryVideo {
@@ -80,7 +85,8 @@ export function isHistoryVideo(value: unknown): value is HistoryVideo {
     (video.channelId === '' || isChannelId(video.channelId)) &&
     typeof video.channelName === 'string' && video.channelName.length <= MAX_HISTORY_CHANNEL_NAME_LENGTH &&
     (video.channelAvatar === undefined || video.channelAvatar === '' || normalizeAvatar(video.channelAvatar) === video.channelAvatar) &&
-    isHistorySeconds(video.durationSeconds)
+    isHistorySeconds(video.durationSeconds) &&
+    (video.short === undefined || typeof video.short === 'boolean')
 }
 
 export function isHistoryEntry(value: unknown): value is HistoryEntry {

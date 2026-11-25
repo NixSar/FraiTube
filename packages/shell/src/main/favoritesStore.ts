@@ -12,7 +12,7 @@ export const favoritesSchema: ModuleSchema = {
 export interface FavoritesStore {
   /** Every favorite, the last added first. */
   list(): Favorite[]
-  /** Adds a video to the favorites; a video already there keeps when it was added. */
+  /** Adds a video to the favorites, marked as a short when it is one; a video already there keeps when it was added. */
   add(video: HistoryVideo): void
   remove(videoId: string): void
 }
@@ -43,7 +43,8 @@ export function createFavoritesStore(storage: Storage, now: () => number = Date.
         channelName: video.channelName,
         channelAvatar: video.channelAvatar ?? '',
         durationSeconds: video.durationSeconds,
-        addedAt: now()
+        addedAt: now(),
+        ...(video.short === true ? { short: true } : {})
       })
     },
     remove(videoId) {

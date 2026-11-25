@@ -10,7 +10,12 @@ export function liveFeedUrl(channelId: string): string {
   return `https://www.youtube.com/feeds/videos.xml?playlist_id=UULV${channelId.slice(2)}`
 }
 
-/** The channel's full feed, used when the videos feed does not exist. */
+/** The channel's feed of shorts. */
+export function shortsFeedUrl(channelId: string): string {
+  return `https://www.youtube.com/feeds/videos.xml?playlist_id=UUSH${channelId.slice(2)}`
+}
+
+/** The channel's full feed, used when the videos feed does not exist. It links shorts to the Shorts player. */
 export function channelFeedUrl(channelId: string): string {
   return `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`
 }
@@ -48,7 +53,17 @@ export function viewsText(views: number): string {
   return `${compact.format(views)} ${views === 1 ? 'view' : 'views'}`
 }
 
-/** Reads the videos of a YouTube RSS (Atom) feed. */
+/** True when a feed entry links to the Shorts player. */
+function linksToShort(entry: string): boolean {
+  for (const [element] of entry.matchAll(/<link\s[^>]*>/g)) {
+    if (/\shref="https:\/\/(www\.)?youtube\.com\/shorts\//.test(element)) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Reads the videos of a YouTube RSS (Atom) feed. A video linked to the Shorts player is marked as a short. */
 export function parseRssFeed(xml: string): FeedVideo[] {
   const feedChannelName = tagText(xml.split('<entry>')[0] ?? '', 'name')
   const videos: FeedVideo[] = []
@@ -65,7 +80,8 @@ export function parseRssFeed(xml: string): FeedVideo[] {
       publishedAt,
       viewsText: tagAttribute(entry, 'media:statistics', 'views') && Number.isFinite(views) ? viewsText(views) : '',
       // Built from the ID: the feed's own thumbnail hosts vary, and the pages only allow i.ytimg.com.
-      thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`
+      thumbnail: `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+      ...(linksToShort(entry) ? { short: true } : {})
     })
   }
   return videos

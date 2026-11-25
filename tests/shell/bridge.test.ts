@@ -68,6 +68,7 @@ describe('isSearchRequest', () => {
     expect(isSearchRequest({ query: 'cats', filter: 'all' })).toBe(true)
     expect(isSearchRequest({ query: 'cats', filter: 'channels', continuation: token })).toBe(true)
     expect(isSearchRequest({ query: 'news', filter: 'live' })).toBe(true)
+    expect(isSearchRequest({ query: 'news', filter: 'shorts' })).toBe(true)
   })
 
   it('refuses empty or long queries, unknown filters and bad tokens', () => {
@@ -106,6 +107,9 @@ describe('isChannelVideosRequest', () => {
     expect(isChannelVideosRequest({ channelId, query: '   ' })).toBe(false)
     expect(isChannelVideosRequest({ channelId, query: 'a'.repeat(MAX_QUERY_LENGTH + 1) })).toBe(false)
     expect(isChannelVideosRequest({ channelId, query: 7 })).toBe(false)
+    expect(isChannelVideosRequest({ channelId, tab: 'shorts' })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, tab: 'videos', continuation: token })).toBe(true)
+    expect(isChannelVideosRequest({ channelId, tab: 'playlists' })).toBe(false)
   })
 
   it('refuses a missing channel, bad tokens and anything that is not a request', () => {

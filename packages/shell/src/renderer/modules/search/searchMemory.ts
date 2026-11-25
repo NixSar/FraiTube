@@ -12,16 +12,19 @@ export interface KeptSearch {
 }
 
 export interface SearchMemory {
-  /** The kept results of a search, or undefined when it was not kept. */
-  get(query: string, filter: SearchFilter): KeptSearch | undefined
-  /** Keeps what a search shows now, in place of what was kept for it. */
-  keep(query: string, filter: SearchFilter, search: KeptSearch): void
+  /** The kept results of a search made with shorts shown or not, or undefined when it was not kept. */
+  get(query: string, filter: SearchFilter, showShorts?: boolean): KeptSearch | undefined
+  /** Keeps what a search shows now, in place of what was kept for it with the same Show Shorts setting. */
+  keep(query: string, filter: SearchFilter, search: KeptSearch, showShorts?: boolean): void
 }
 
-/** Keeps the results of the last searches, so going back to one or running it again shows it at once. */
+/**
+ * Keeps the results of the last searches, so going back to one or running it again shows it at once.
+ * A search is kept apart for each Show Shorts setting.
+ */
 export function createSearchMemory(limit = KEPT_SEARCHES): SearchMemory {
   const kept = new Map<string, KeptSearch>()
-  const keyOf = (query: string, filter: SearchFilter): string => `${filter}\n${query}`
+  const keyOf = (query: string, filter: SearchFilter, showShorts = false): string => `${showShorts ? 'shorts' : 'no-shorts'}\n${filter}\n${query}`
   const copyOf = (search: KeptSearch): KeptSearch => ({
     videos: [...search.videos],
     channels: [...search.channels],
@@ -30,8 +33,8 @@ export function createSearchMemory(limit = KEPT_SEARCHES): SearchMemory {
   })
 
   return {
-    get(query, filter) {
-      const key = keyOf(query, filter)
+    get(query, filter, showShorts) {
+      const key = keyOf(query, filter, showShorts)
       const search = kept.get(key)
       if (!search) return undefined
       // The search used last is the one dropped last.
@@ -39,8 +42,8 @@ export function createSearchMemory(limit = KEPT_SEARCHES): SearchMemory {
       kept.set(key, search)
       return copyOf(search)
     },
-    keep(query, filter, search) {
-      const key = keyOf(query, filter)
+    keep(query, filter, search, showShorts) {
+      const key = keyOf(query, filter, showShorts)
       kept.delete(key)
       kept.set(key, copyOf(search))
       for (const oldest of kept.keys()) {

@@ -131,7 +131,7 @@ export function registerNetworkHandlers(userAgent: string): YoutubeAccess {
     if (!fromAppWindow(event) || !isChannelVideosRequest(request) || !isChannelId(request.channelId)) {
       throw new Error('Request refused')
     }
-    return youtube.getChannelVideos({ channelId: request.channelId, query: request.query?.trim(), continuation: request.continuation })
+    return youtube.getChannelVideos({ channelId: request.channelId, query: request.query?.trim(), tab: request.tab, continuation: request.continuation })
   })
 
   ipcMain.handle(IpcChannel.captions, (event, videoId: unknown, trackId: unknown) => {

@@ -2,7 +2,7 @@
 import type { FraiTubeModule, NavItem } from '@fraitube/app-api'
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue'
 import { useRoute, useRouter, type RouteLocationRaw } from 'vue-router'
-import { videoIdFromLink } from '@fraitube/youtube/ids'
+import { isShortsLink, videoIdFromLink } from '@fraitube/youtube/ids'
 import { splitNav } from './sideNav'
 import { newWindowPath, newWindowTitle } from './newWindow'
 import { canSearch, historySteps, keyStep, mouseStep, type Step } from './backForward'
@@ -156,7 +156,10 @@ function closeList(): void {
   dropSuggestions()
 }
 
-/** A YouTube video link opens the video; anything else is searched and saved in the search history. */
+/**
+ * A YouTube video link opens the video, a Shorts link marked as a short; anything else is searched and
+ * saved in the search history.
+ */
 function search(): void {
   closeList()
   const text = query.value.trim()
@@ -166,7 +169,7 @@ function search(): void {
   const videoId = videoIdFromLink(text)
   if (videoId) {
     query.value = ''
-    void router.push({ name: 'watch', params: { videoId } })
+    void router.push({ name: 'watch', params: { videoId }, query: isShortsLink(text) ? { short: '1' } : {} })
   } else {
     // When saving fails, the search still runs.
     window.fraitube.addSearch(text).catch(() => undefined)

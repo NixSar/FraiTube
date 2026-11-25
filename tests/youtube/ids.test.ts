@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { isVideoId, parseVideoId, videoIdFromLink } from '../../packages/youtube/src/ids'
+import { isShortsLink, isVideoId, parseVideoId, videoIdFromLink } from '../../packages/youtube/src/ids'
+
+describe('isShortsLink', () => {
+  it('is true for a YouTube Shorts link, with or without its address start', () => {
+    expect(isShortsLink('https://www.youtube.com/shorts/W5FeihU43oc')).toBe(true)
+    expect(isShortsLink(' youtube.com/shorts/W5FeihU43oc?feature=share ')).toBe(true)
+  })
+
+  it('is false for other video links, other sites and bare IDs', () => {
+    expect(isShortsLink('https://www.youtube.com/watch?v=W5FeihU43oc')).toBe(false)
+    expect(isShortsLink('https://youtu.be/W5FeihU43oc')).toBe(false)
+    expect(isShortsLink('https://example.com/shorts/W5FeihU43oc')).toBe(false)
+    expect(isShortsLink('https://www.youtube.com/shorts/')).toBe(false)
+    expect(isShortsLink('W5FeihU43oc')).toBe(false)
+  })
+})
 
 describe('parseVideoId', () => {
   it('accepts bare IDs and common link forms', () => {

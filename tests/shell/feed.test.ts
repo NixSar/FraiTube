@@ -14,7 +14,7 @@ import {
 } from '../../packages/shell/src/main/feed'
 import { TEST_DATA_DIR } from '../paths'
 import type { FeedProgress } from '../../packages/shell/src/shared/bridge'
-import { channelFeedUrl, liveFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
+import { channelFeedUrl, liveFeedUrl, shortsFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
 import { GAMERS_NEXUS, HARDWARE_UNBOXED, LEVEL1_TECHS, rssFeed } from '../subscriptions/fixtures'
 
 const gamersNexus = { id: GAMERS_NEXUS, name: 'Gamers Nexus', avatar: '' }
@@ -273,6 +273,70 @@ describe('createFeedService', () => {
     expect(feed.videos.map((video) => video.id)).toContain('level1tech1')
   })
 
+  describe('shorts', () => {
+    const shortsFeed = `<feed><entry><yt:videoId>gnshortvid1</yt:videoId><title>Short</title><published>2030-01-01T10:00:00Z</published></entry></feed>`
+    const shortLink = (id: string): string =>
+      `<entry><yt:videoId>${id}</yt:videoId><title>${id}</title><link rel="alternate" href="https://www.youtube.com/shorts/${id}"/><published>2026-11-23T10:00:00Z</published></entry>`
+
+    function fetcher(requested: string[]): FetchText {
+      return async (url) => {
+        requested.push(url)
+        if (url === videosFeedUrl(GAMERS_NEXUS)) return { status: 200, text: rssFeed }
+        if (url === shortsFeedUrl(GAMERS_NEXUS)) return { status: 200, text: shortsFeed }
+        if (url === videosFeedUrl(HARDWARE_UNBOXED)) return { status: 404, text: '' }
+        if (url === channelFeedUrl(HARDWARE_UNBOXED)) return { status: 200, text: `<feed>${shortLink('hwshortvid1')}</feed>` }
+        return { status: 404, text: '' }
+      }
+    }
+
+    it('fetches no Shorts feed while shorts do not show, and leaves out the shorts of a full feed', async () => {
+      const requested: string[] = []
+      const feed = await createFeedService(fetcher(requested)).get([gamersNexus, hardwareUnboxed], false)
+      expect(requested.some((url) => url.includes('playlist_id=UUSH'))).toBe(false)
+      expect(feed.videos.map((video) => video.id)).toEqual(['l8qxFcaLSM4', 'KNVKzPHgg4M'])
+      expect(feed.failedChannels).toEqual([])
+    })
+
+    it('adds each channel\'s shorts with their short mark while shorts show, also those of a full feed', async () => {
+      const requested: string[] = []
+      const feed = await createFeedService(fetcher(requested), Date.now, undefined, undefined, undefined, () => true).get([gamersNexus, hardwareUnboxed], false)
+      expect(requested).toContain(shortsFeedUrl(GAMERS_NEXUS))
+      expect(feed.videos.map((video) => [video.id, video.short])).toEqual([
+        ['gnshortvid1', true],
+        ['hwshortvid1', true],
+        ['l8qxFcaLSM4', undefined],
+        ['KNVKzPHgg4M', undefined]
+      ])
+      expect(feed.videos[0]).toMatchObject({ channelId: GAMERS_NEXUS, channelName: 'Gamers Nexus' })
+    })
+
+    it('fetches again with the shorts once they show, and hides them again without fetching once they do not', async () => {
+      let show = false
+      const requested: string[] = []
+      const cache = { saved: undefined as SavedFeed | undefined, load() { return this.saved }, save(feed: SavedFeed) { this.saved = feed } }
+      const service = createFeedService(fetcher(requested), () => 10, undefined, cache, undefined, () => show)
+      await service.get([gamersNexus], false)
+      expect(cache.saved?.shorts).toBeUndefined()
+
+      show = true
+      const withShorts = await service.get([gamersNexus], false)
+      expect(requested.filter((url) => url === videosFeedUrl(GAMERS_NEXUS))).toHaveLength(2)
+      expect(withShorts.videos.map((video) => video.id)).toContain('gnshortvid1')
+      expect(cache.saved?.shorts).toBe(true)
+
+      show = false
+      const without = await service.get([gamersNexus], false)
+      expect(requested.filter((url) => url === videosFeedUrl(GAMERS_NEXUS))).toHaveLength(2)
+      expect(without.videos.map((video) => video.id)).toEqual(['l8qxFcaLSM4', 'KNVKzPHgg4M'])
+
+      // A restart keeps knowing that the saved feed has its shorts.
+      show = true
+      requested.length = 0
+      await createFeedService(fetcher(requested), () => 10, undefined, cache, undefined, () => show).get([gamersNexus], false)
+      expect(requested).toEqual([])
+    })
+  })
+
   it('shares one load between requests made while it runs', async () => {
     let requests = 0
     const service = createFeedService(async (url) => {
@@ -292,6 +356,12 @@ describe('readSavedFeed', () => {
     const saved: SavedFeed = { fetchedAt: 7, channels: [[GAMERS_NEXUS, [video, { ...video, id: 'gnlivestrm1', live: true }]], [LEVEL1_TECHS, null]] }
     expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
     expect(readSavedFeed(JSON.stringify({ fetchedAt: 7, channels: [[GAMERS_NEXUS, [{ ...video, live: 'yes' }]]] }))).toBeUndefined()
+  })
+
+  it('reads a saved feed fetched with shorts, with their short marks', () => {
+    const saved: SavedFeed = { fetchedAt: 7, shorts: true, channels: [[GAMERS_NEXUS, [video, { ...video, id: 'gnshortvid1', short: true }]]] }
+    expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
+    expect(readSavedFeed(JSON.stringify({ fetchedAt: 7, channels: [[GAMERS_NEXUS, [{ ...video, short: 1 }]]] }))).toBeUndefined()
   })
 
   it('ignores text that is not a saved feed', () => {

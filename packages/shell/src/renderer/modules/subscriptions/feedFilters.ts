@@ -2,7 +2,7 @@ import { isChannelId } from '@fraitube/subscriptions'
 import type { FeedVideo } from '@fraitube/subscriptions/types'
 import { isPlayed, isWatched, watchProgress, type HistoryEntry } from '../../../shared/history'
 
-export type FeedType = 'all' | 'videos' | 'live'
+export type FeedType = 'all' | 'videos' | 'live' | 'shorts'
 export type FeedWatched = 'all' | 'unwatched' | 'progress'
 export type FeedDate = 'any' | 'today' | 'week' | 'month'
 
@@ -22,8 +22,14 @@ export const DEFAULT_FEED_FILTERS: FeedFilters = { type: 'all', watched: 'all', 
 export const FEED_TYPES: { value: FeedType; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'videos', label: 'Videos' },
-  { value: 'live', label: 'Live' }
+  { value: 'live', label: 'Live' },
+  { value: 'shorts', label: 'Shorts' }
 ]
+
+/** The type filters offered: Shorts only while shorts show. */
+export function feedTypes(showShorts: boolean): { value: FeedType; label: string }[] {
+  return showShorts ? FEED_TYPES : FEED_TYPES.filter((option) => option.value !== 'shorts')
+}
 
 export const FEED_WATCHED: { value: FeedWatched; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -96,9 +102,10 @@ function textKey(text: string): string {
 }
 
 /**
- * The feed videos the filters let through, in their order. Unwatched are the videos not played and not
- * marked watched, the ones shown unfaded; in progress are the played ones not watched yet. A scheduled
- * live stream, published in the future, passes every date filter.
+ * The feed videos the filters let through, in their order. Videos are neither live streams nor shorts.
+ * Unwatched are the videos not played and not marked watched, the ones shown unfaded; in progress are
+ * the played ones not watched yet. A scheduled live stream, published in the future, passes every date
+ * filter.
  */
 export function filterFeed(
   videos: readonly FeedVideo[],
@@ -109,7 +116,8 @@ export function filterFeed(
   const earliest = earliestPublished(filters.date, now)
   const title = textKey(filters.title)
   return videos.filter((video) => {
-    if ((filters.type === 'live' && !video.live) || (filters.type === 'videos' && video.live)) {
+    if ((filters.type === 'live' && !video.live) || (filters.type === 'videos' && (video.live || video.short)) ||
+      (filters.type === 'shorts' && !video.short)) {
       return false
     }
     if (filters.channel && video.channelId !== filters.channel) {

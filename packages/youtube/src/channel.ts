@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { YTNodes, type Helpers, type Innertube } from 'youtubei.js'
-import { toVideo } from './search'
+import { fromShortsLockup, opensShort, toVideo } from './search'
 import type { ChannelInfo, ChannelVideosPage, ChannelVideosRequest, VideoResult } from './types'
 
 type YTNode = Helpers.YTNode
@@ -105,10 +105,18 @@ export function createChannelReader(getInnertube: () => Promise<Innertube>): Cha
     return token
   }
 
-  /** A video item of the channel's videos or search results, or undefined for anything that is not a video. */
+  /**
+   * A video item of the channel's videos, shorts or search results, or undefined for anything that is
+   * not a video. Shorts are marked as shorts.
+   */
   function videoOf(node: YTNode, channel: ChannelInfo): VideoResult | undefined {
+    const fromChannel = { channelId: channel.id, channelName: channel.name, channelAvatar: channel.avatar }
     if (node.is(YTNodes.Video)) {
-      return { ...toVideo(node), channelId: channel.id, channelName: channel.name, channelAvatar: channel.avatar }
+      return { ...toVideo(node), ...fromChannel, ...(opensShort(node.endpoint) ? { isShort: true } : {}) }
+    }
+    if (node.is(YTNodes.ShortsLockupView)) {
+      const short = fromShortsLockup(node)
+      return short && { ...short, ...fromChannel, isShort: true }
     }
     const parts = partsOf(node)
     return parts && toChannelVideo(parts, channel)
@@ -146,6 +154,12 @@ export function createChannelReader(getInnertube: () => Promise<Innertube>): Cha
           throw new Error('This channel cannot be searched.')
         }
         feed = await found.search(request.query)
+      } else if (request.tab === 'shorts') {
+        // A channel without a Shorts tab has no shorts.
+        if (!found.has_shorts) {
+          return { channel, videos: [] }
+        }
+        feed = await found.getShorts()
       } else {
         feed = found.has_videos ? await found.getVideos() : found
       }

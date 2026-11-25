@@ -5,7 +5,7 @@ import { openStorage, syncedTables, type ModuleSchema, type Storage } from '@fra
 import { syncSchema } from '@fraitube/sync'
 import { IpcChannel, isAppPath } from '../shared/bridge'
 import { staysOnPage } from '../shared/navigation'
-import { allSettingDefinitions, feedMaxAgeMs, SettingKey } from '../shared/settings'
+import { allSettingDefinitions, feedMaxAgeMs, SettingKey, shortsShown } from '../shared/settings'
 import { fromAppWindow } from './appWindow'
 import { registerBackupHandlers } from './backup'
 import { registerNetworkHandlers } from './net'
@@ -194,7 +194,8 @@ void app.whenReady().then(() => {
   const feed = createFeedService(async (url) => {
     const response = await youtube.fetch(url)
     return { status: response.status, text: response.status === 200 ? await response.text() : '' }
-  }, Date.now, announceFeedProgress, createFeedCacheFile(join(app.getPath('userData'), 'feed-cache.json')), () => feedMaxAgeMs(settings?.get(SettingKey.feedRefresh)))
+  }, Date.now, announceFeedProgress, createFeedCacheFile(join(app.getPath('userData'), 'feed-cache.json')), () => feedMaxAgeMs(settings?.get(SettingKey.feedRefresh)),
+  () => shortsShown(settings?.get(SettingKey.showShorts)))
   registerSubscriptionHandlers(createSubscriptionsStore(storage), feed, youtube.getChannelIcon)
   registerHistoryHandlers(createHistoryStore(storage))
   registerFavoritesHandlers(createFavoritesStore(storage))

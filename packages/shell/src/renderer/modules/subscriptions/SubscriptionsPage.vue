@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { timeAgo } from '@fraitube/subscriptions'
 import type { Feed, FeedVideo } from '@fraitube/subscriptions/types'
 import type { FeedProgress } from '../../../shared/bridge'
+import { SettingKey, shortsShown } from '../../../shared/settings'
+import { settings } from '../../settings'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
 import { usePaging } from '../../components/paging'
@@ -36,9 +38,17 @@ const { favoriteItem } = useFavoriteMenuItem()
 
 /** A feed video's menu; its length is unknown here, so it is saved as 0. */
 function menuItems(video: FeedVideo): VideoMenuItem[] {
-  const details = { videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 }
-  return [playInNewWindowItem(video.id), watchedItem(details), favoriteItem(details)]
+  const details = {
+    videoId: video.id,
+    title: video.title,
+    channelId: video.channelId,
+    channelName: video.channelName,
+    durationSeconds: 0,
+    ...(video.short ? { short: true } : {})
+  }
+  return [playInNewWindowItem(video.id, video.short), watchedItem(details), favoriteItem(details)]
 }
+const showShorts = computed(() => shortsShown(settings[SettingKey.showShorts]))
 const route = useRoute()
 const router = useRouter()
 const historyEntries = useHistoryEntries()
@@ -59,10 +69,17 @@ function setFilters(next: FeedFilters): void {
 }
 
 const channels = computed(() => feedChannels(feed.value?.videos ?? []))
-/** The filters as applied: a channel with no videos in the feed counts as every channel. */
+/**
+ * The filters as applied: a channel with no videos in the feed counts as every channel, and the Shorts
+ * type, while shorts do not show, as every type.
+ */
 const applied = computed(() => {
   const channel = filters.value.channel
-  return channel && !channels.value.some((known) => known.id === channel) ? { ...filters.value, channel: '' } : filters.value
+  const unknownChannel = channel !== '' && !channels.value.some((known) => known.id === channel)
+  const hiddenType = filters.value.type === 'shorts' && !showShorts.value
+  return unknownChannel || hiddenType
+    ? { ...filters.value, ...(unknownChannel ? { channel: '' } : {}), ...(hiddenType ? { type: 'all' as const } : {}) }
+    : filters.value
 })
 const filtered = computed(() =>
   filterFeed(feed.value?.videos ?? [], applied.value, (videoId) => historyEntries.value.get(videoId), now.value))
@@ -126,7 +143,8 @@ void ready.then(() => {
   if (closed) {
     return
   }
-  stopFollowing = watch(() => subscriptions.value.map((subscription) => subscription.id).join(','), () => {
+  // Turning Show Shorts on or off loads the feed again, with or without the shorts.
+  stopFollowing = watch(() => [subscriptions.value.map((subscription) => subscription.id).join(','), showShorts.value], () => {
     void load(false)
   }, { immediate: true })
 })
@@ -185,6 +203,7 @@ onBeforeUnmount(() => {
       v-if="feed && subscriptions.length > 0"
       :filters="filters"
       :channels="channels"
+      :show-shorts="showShorts"
       @change="setFilters"
     />
     <div
@@ -222,6 +241,7 @@ onBeforeUnmount(() => {
           :channel-name="video.channelName"
           :details="[video.viewsText, timeAgo(video.publishedAt, now)]"
           :menu-items="menuItems(video)"
+          :short="video.short"
         />
       </li>
     </VideoGrid>

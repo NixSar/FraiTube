@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { normalizeAvatar } from '@fraitube/subscriptions'
-import type { ChannelInfo, VideoResult } from '@fraitube/youtube/types'
+import type { ChannelInfo, ChannelTab, VideoResult } from '@fraitube/youtube/types'
 import { MAX_QUERY_LENGTH } from '../../../shared/bridge'
+import { SettingKey, shortsShown } from '../../../shared/settings'
+import { settings } from '../../settings'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
 import { cardBadge, cardDetails } from '../../components/videoCard'
@@ -27,12 +29,32 @@ const loadId = ref(0)
 const { progressOf } = useWatchProgress()
 const { watchedItem } = useWatchedMenuItem()
 const { favoriteItem } = useFavoriteMenuItem()
-const { shown, hasMore, showMore } = usePaging(() => videos.value, () => loadId.value)
+const showShorts = computed(() => shortsShown(settings[SettingKey.showShorts]))
+/** The videos shown: shorts only while Show Shorts is on. */
+const shownVideos = computed(() => (showShorts.value ? videos.value : videos.value.filter((video) => !video.isShort)))
+const { shown, hasMore, showMore } = usePaging(() => shownVideos.value, () => loadId.value)
+
+const TABS: { value: ChannelTab; label: string }[] = [
+  { value: 'videos', label: 'Videos' },
+  { value: 'shorts', label: 'Shorts' }
+]
+
+/** The tab shown, kept in the address: Shorts only while Show Shorts is on and nothing is searched. */
+function currentTab(): ChannelTab {
+  return route.query['tab'] === 'shorts' && showShorts.value && !currentQuery() ? 'shorts' : 'videos'
+}
 
 /** A channel video's menu; its length is not read here, so it is saved as 0. */
 function menuItems(video: VideoResult): VideoMenuItem[] {
-  const details = { videoId: video.id, title: video.title, channelId: video.channelId, channelName: video.channelName, durationSeconds: 0 }
-  return [playInNewWindowItem(video.id), watchedItem(details), favoriteItem(details)]
+  const details = {
+    videoId: video.id,
+    title: video.title,
+    channelId: video.channelId,
+    channelName: video.channelName,
+    durationSeconds: 0,
+    ...(video.isShort ? { short: true } : {})
+  }
+  return [playInNewWindowItem(video.id, video.isShort), watchedItem(details), favoriteItem(details)]
 }
 
 function currentChannelId(): string {
@@ -60,6 +82,7 @@ async function load(more: boolean): Promise<void> {
     return
   }
   const query = currentQuery()
+  const tab = currentTab()
   const id = more ? loadId.value : ++loadId.value
   if (!more) {
     if (channel.value?.id !== channelId) {
@@ -74,6 +97,7 @@ async function load(more: boolean): Promise<void> {
     const page = await window.fraitube.getChannelVideos({
       channelId,
       ...(query && { query }),
+      ...(tab === 'shorts' && { tab }),
       continuation: more ? continuation.value : undefined
     })
     if (id !== loadId.value) {
@@ -97,7 +121,7 @@ async function load(more: boolean): Promise<void> {
   }
 }
 
-watch(() => [route.params['channelId'], route.query['q']], () => {
+watch(() => [route.params['channelId'], route.query['q'], currentTab()], () => {
   searchText.value = currentQuery()
   void load(false)
 }, { immediate: true })
@@ -140,6 +164,22 @@ watch(() => [route.params['channelId'], route.query['q']], () => {
       </form>
     </header>
 
+    <nav
+      v-if="channel && showShorts && !currentQuery()"
+      class="tabs"
+    >
+      <RouterLink
+        v-for="tab in TABS"
+        :key="tab.value"
+        :to="{ query: tab.value === 'shorts' ? { tab: 'shorts' } : {} }"
+        replace
+        class="tab"
+        :class="{ active: currentTab() === tab.value }"
+      >
+        {{ tab.label }}
+      </RouterLink>
+    </nav>
+
     <p
       v-if="error"
       class="error"
@@ -148,7 +188,7 @@ watch(() => [route.params['channelId'], route.query['q']], () => {
     </p>
 
     <VideoGrid
-      v-if="videos.length > 0"
+      v-if="shownVideos.length > 0"
       :has-more="hasMore"
       @more="showMore"
     >
@@ -168,15 +208,16 @@ watch(() => [route.params['channelId'], route.query['q']], () => {
           :channel-avatar="channel?.avatar"
           :details="[video.viewsText, video.publishedText]"
           :menu-items="menuItems(video)"
+          :short="video.isShort"
         />
       </li>
     </VideoGrid>
 
     <p
-      v-if="!loading && !error && channel && videos.length === 0"
+      v-if="!loading && !error && channel && shownVideos.length === 0"
       class="meta"
     >
-      {{ currentQuery() ? 'No videos on this channel match the search.' : 'This channel has no videos.' }}
+      {{ currentQuery() ? 'No videos on this channel match the search.' : currentTab() === 'shorts' ? 'This channel has no shorts.' : 'This channel has no videos.' }}
     </p>
     <p
       v-if="loading"
@@ -218,6 +259,28 @@ watch(() => [route.params['channelId'], route.query['q']], () => {
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-end: 16px;
+}
+
+.tab {
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.tab.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .channel-text h1 {

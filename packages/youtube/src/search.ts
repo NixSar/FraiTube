@@ -10,7 +10,8 @@ export const FILTER_OPTIONS: Record<SearchFilter, Types.SearchFilters> = {
   all: { type: 'all' },
   videos: { type: 'video' },
   live: { type: 'video', features: ['live'] },
-  channels: { type: 'channel' }
+  channels: { type: 'channel' },
+  shorts: { type: 'shorts' }
 }
 /** How many unfinished searches keep their next page available. */
 const REMEMBERED_SEARCHES = 50
@@ -38,7 +39,7 @@ function text(value: { toString(): string } | undefined | null): string {
 }
 
 /** True when a link opens the Shorts player. */
-function opensShort(endpoint: YTNodes.NavigationEndpoint | undefined): boolean {
+export function opensShort(endpoint: YTNodes.NavigationEndpoint | undefined): boolean {
   const metadata = endpoint?.metadata
   return metadata?.page_type === SHORTS_PAGE_TYPE || (metadata?.url?.startsWith('/shorts/') ?? false)
 }
@@ -114,7 +115,7 @@ function fromLockup(node: YTNodes.LockupView): VideoResult | undefined {
 }
 
 /** A card of a Shorts row. It names no channel. */
-function fromShortsLockup(node: YTNodes.ShortsLockupView): VideoResult | undefined {
+export function fromShortsLockup(node: YTNodes.ShortsLockupView): VideoResult | undefined {
   const id: unknown = node.on_tap_endpoint?.payload?.videoId
   if (typeof id !== 'string' || !id) {
     return undefined

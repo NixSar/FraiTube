@@ -51,6 +51,15 @@ describe('createFavoritesStore', () => {
     expect(store.list()[1]).toEqual({ ...hwNews, channelAvatar: '', addedAt: 100 })
   })
 
+  it('marks a short added as a short, and reads favorites saved without the mark as videos', () => {
+    const storage = open()
+    storage.records('favorites').put(ramAltman.videoId, { ...ramAltman, channelAvatar: '', addedAt: 1 })
+    const store = createFavoritesStore(storage, () => 100)
+    store.add({ ...hwNews, short: true })
+    expect(store.list().map((favorite) => [favorite.videoId, favorite.short])).toEqual([[hwNews.videoId, true], [ramAltman.videoId, undefined]])
+    expect(isFavorite({ ...hwNews, addedAt: 1, short: 'yes' })).toBe(false)
+  })
+
   it('keeps when a video was added when it is added again', () => {
     let time = 100
     const store = createFavoritesStore(open(), () => time++)

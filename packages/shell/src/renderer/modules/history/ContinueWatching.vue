@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { continueWatching, timeLeftText, videoThumbnail, watchedPercent, type HistoryEntry } from '../../../shared/history'
+import { SettingKey, shortsShown, withoutHiddenShorts } from '../../../shared/settings'
+import { settings } from '../../settings'
 import VideoMenu from '../../components/VideoMenu.vue'
 import { playInNewWindowItem, type VideoMenuItem } from '../../components/videoMenu'
 import { useFavoriteMenuItem } from '../favorites/store'
@@ -8,7 +10,9 @@ import { useHistoryEntries, useWatchedMenuItem } from './progress'
 
 /** The side column's list of videos last stopped partway, each opening where it stopped. */
 const entries = useHistoryEntries()
-const videos = computed(() => continueWatching(entries.value.values()))
+/** Shorts show here only while Show Shorts is on. */
+const videos = computed(() =>
+  continueWatching(withoutHiddenShorts([...entries.value.values()], shortsShown(settings[SettingKey.showShorts]))))
 const { watchedItem } = useWatchedMenuItem()
 const { favoriteItem } = useFavoriteMenuItem()
 
@@ -24,7 +28,7 @@ function setMenu(videoId: string, menu: unknown): void {
 }
 
 function menuItems(video: HistoryEntry): VideoMenuItem[] {
-  return [playInNewWindowItem(video.videoId), watchedItem(video), favoriteItem(video)]
+  return [playInNewWindowItem(video.videoId, video.short), watchedItem(video), favoriteItem(video)]
 }
 </script>
 
@@ -44,7 +48,7 @@ function menuItems(video: HistoryEntry): VideoMenuItem[] {
       >
         <RouterLink
           class="item"
-          :to="{ name: 'watch', params: { videoId: video.videoId } }"
+          :to="{ name: 'watch', params: { videoId: video.videoId }, query: video.short ? { short: '1' } : {} }"
           :title="video.title"
         >
           <span class="picture">

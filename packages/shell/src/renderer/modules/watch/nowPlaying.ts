@@ -45,6 +45,19 @@ export const HAND_OFF_LIMIT_MS = 15_000
 /** The video coming back from the PiP window, until its watch page opens it. */
 let returningVideoId: string | undefined
 
+/** The videos opened as shorts in this window, from a short's card or a Shorts link. */
+const shortVideos = new Set<string>()
+
+/** Notes that a video was opened as a short, so it is saved as one in the history. */
+export function markShort(videoId: string): void {
+  shortVideos.add(videoId)
+}
+
+/** Whether a video was opened as a short in this window. */
+export function isMarkedShort(videoId: string): boolean {
+  return shortVideos.has(videoId)
+}
+
 /**
  * The PiP window takes over, or closed before it did: a video kept out of sight stops and gives the
  * second it reached and whether it was paused.

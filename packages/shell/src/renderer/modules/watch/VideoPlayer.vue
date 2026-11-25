@@ -47,6 +47,7 @@ import { PlayerSettingKey, readDefaultQuality, startingQuality, SUBTITLE_DEFAULT
 import { categoryModes, SponsorBlockSettingKey } from '../../../shared/sponsorBlockSettings'
 import { bridgeFetch } from '../../net'
 import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
+import { isMarkedShort } from './nowPlaying'
 import { startingSubtitleTrack } from './subtitleStart'
 import { setSetting, settings } from '../../settings'
 import { playerStatusText } from './playerStatus'
@@ -388,7 +389,8 @@ async function startPosition(playback: VideoPlayback): Promise<number> {
       channelId: playback.channelId,
       channelName: playback.author.slice(0, MAX_HISTORY_CHANNEL_NAME_LENGTH),
       channelAvatar: normalizeAvatar(playback.about.channelIcon),
-      durationSeconds: playback.durationSeconds
+      durationSeconds: playback.durationSeconds,
+      ...(isMarkedShort(playback.videoId) ? { short: true } : {})
     })
     return resumeEnabled() && !playback.isLive ? resumeSeconds(entry.positionSeconds, playback.durationSeconds) : 0
   } catch {

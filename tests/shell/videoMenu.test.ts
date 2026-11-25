@@ -6,10 +6,16 @@ const windowSize = { width: 1200, height: 800 }
 describe('playInNewWindowItem', () => {
   it('opens the video\'s watch page in a new window', () => {
     const opened: string[] = []
-    const item = playInNewWindowItem('l8qxFcaLSM4', (path) => opened.push(path))
+    const item = playInNewWindowItem('l8qxFcaLSM4', false, (path) => opened.push(path))
     expect(item.label).toBe('Play in new window')
     item.run()
     expect(opened).toEqual(['/watch/l8qxFcaLSM4'])
+  })
+
+  it('opens a short\'s watch page marked as a short', () => {
+    const opened: string[] = []
+    playInNewWindowItem('W5FeihU43oc', true, (path) => opened.push(path)).run()
+    expect(opened).toEqual(['/watch/W5FeihU43oc?short=1'])
   })
 })
 

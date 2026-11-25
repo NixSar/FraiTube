@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import {
   FEED_DATES,
-  FEED_TYPES,
   FEED_WATCHED,
+  feedTypes,
   MAX_TITLE_FILTER_LENGTH,
   type FeedDate,
   type FeedFilters
@@ -12,6 +12,8 @@ const props = defineProps<{
   filters: FeedFilters
   /** The channels to choose from, by name. */
   channels: { id: string; name: string }[]
+  /** Offers the Shorts type filter. */
+  showShorts: boolean
 }>()
 
 const emit = defineEmits<{ change: [filters: FeedFilters] }>()
@@ -31,7 +33,7 @@ function update(change: Partial<FeedFilters>): void {
           aria-label="Type"
         >
           <button
-            v-for="option in FEED_TYPES"
+            v-for="option in feedTypes(showShorts)"
             :key="option.value"
             type="button"
             class="chip"

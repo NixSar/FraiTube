@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, useTemplateRef } from 'vue'
+import { computed, onBeforeUnmount, ref, useTemplateRef } from 'vue'
 import { timeAgo } from '@fraitube/subscriptions'
 import { entryWithPosition, videoThumbnail, watchProgress, type HistoryEntry } from '../../../shared/history'
+import { SettingKey, shortsShown, withoutHiddenShorts } from '../../../shared/settings'
+import { settings } from '../../settings'
 import { usePaging } from '../../components/paging'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
@@ -17,7 +19,9 @@ const entries = ref<HistoryEntry[]>([])
 const loaded = ref(false)
 const error = ref('')
 const now = ref(Date.now())
-const { shown, hasMore, showMore } = usePaging(() => entries.value)
+/** The entries shown: shorts only while Show Shorts is on. */
+const shownEntries = computed(() => withoutHiddenShorts(entries.value, shortsShown(settings[SettingKey.showShorts])))
+const { shown, hasMore, showMore } = usePaging(() => shownEntries.value)
 
 function reportError(cause: unknown): void {
   error.value = cause instanceof Error ? cause.message : String(cause)
@@ -137,7 +141,7 @@ void reload()
       {{ error }}
     </p>
     <p
-      v-if="loaded && entries.length === 0"
+      v-if="loaded && shownEntries.length === 0"
       class="meta"
     >
       No videos watched yet.
@@ -160,7 +164,8 @@ void reload()
           :channel-name="entry.channelName"
           :channel-avatar="entry.channelAvatar"
           :details="[`Watched ${timeAgo(entry.watchedAt, now)}`]"
-          :menu-items="[playInNewWindowItem(entry.videoId), watchedItem(entry), favoriteItem(entry)]"
+          :menu-items="[playInNewWindowItem(entry.videoId, entry.short), watchedItem(entry), favoriteItem(entry)]"
+          :short="entry.short"
         >
           <template #actions>
             <button

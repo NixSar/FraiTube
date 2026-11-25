@@ -50,6 +50,34 @@ describe('createHistoryStore', () => {
     expect(store.list()[0]).toEqual({ ...hwNews, channelAvatar: '', watchedAt: 102, positionSeconds: 0 })
   })
 
+  it('marks a video opened as a short, and keeps the mark when it is opened again as a video', () => {
+    const store = createHistoryStore(open())
+    store.record(hwNews)
+    expect(store.list()[0]?.short).toBeUndefined()
+    store.record({ ...hwNews, short: true })
+    store.record(hwNews)
+    expect(store.list()[0]?.short).toBe(true)
+  })
+
+  it('marks a short as watched with its short mark, also when it is already in the history', () => {
+    const store = createHistoryStore(open())
+    store.markWatched({ ...hwNews, short: true })
+    expect(store.list()[0]).toMatchObject({ watched: true, short: true })
+    store.record(ramAltman)
+    store.markWatched({ ...ramAltman, short: true })
+    expect(store.list().find((entry) => entry.videoId === ramAltman.videoId)).toMatchObject({ watched: true, short: true })
+  })
+
+  it('reads entries saved before the short mark was kept as videos, and keeps a mark over an import', () => {
+    const storage = open()
+    storage.records('history').put(hwNews.videoId, { ...hwNews, channelAvatar: '', watchedAt: 1, positionSeconds: 0 })
+    const store = createHistoryStore(storage)
+    expect(store.list()[0]?.short).toBeUndefined()
+    store.record({ ...hwNews, short: true })
+    store.import([{ ...hwNews, watchedAt: Date.now() + 1000, positionSeconds: 0 }], 'freetube')
+    expect(store.list()[0]?.short).toBe(true)
+  })
+
   it('keeps the channel icon given with the video', () => {
     const store = createHistoryStore(open())
     store.record({ ...hwNews, channelAvatar: 'https://yt3.ggpht.com/gn=s88' })

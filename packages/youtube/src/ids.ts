@@ -37,6 +37,17 @@ export function parseVideoId(input: string): string | undefined {
   return isVideoId(candidate) ? candidate : undefined
 }
 
+/** True for a YouTube Shorts link, such as youtube.com/shorts/ followed by a video ID. */
+export function isShortsLink(input: string): boolean {
+  const text = input.trim()
+  try {
+    const url = new URL(/^https?:\/\//i.test(text) ? text : `https://${text}`)
+    return VIDEO_HOSTS.has(url.hostname.toLowerCase()) && url.pathname.startsWith('/shorts/') && parseVideoId(text) !== undefined
+  } catch {
+    return false
+  }
+}
+
 /**
  * Returns the video ID from a YouTube video link, or undefined. Unlike parseVideoId, a bare ID is not
  * taken as a video, since an eleven-letter search word looks the same.

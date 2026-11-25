@@ -22,6 +22,8 @@ const props = defineProps<{
   details: readonly (string | undefined)[]
   /** The card's menu, opened from its ⋮ button, by right-click or by a long press. */
   menuItems?: VideoMenuItem[]
+  /** A short: its watch page marks it as one in History and Favorites. */
+  short?: boolean
 }>()
 
 const detailsText = computed(() => cardDetails(props.details))
@@ -40,7 +42,7 @@ function openMenu(event: MouseEvent): void {
   >
     <RouterLink
       class="link"
-      :to="{ name: 'watch', params: { videoId } }"
+      :to="{ name: 'watch', params: { videoId }, query: short ? { short: '1' } : {} }"
     >
       <div class="thumbnail">
         <img

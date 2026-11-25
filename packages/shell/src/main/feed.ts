@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { rename, writeFile } from 'node:fs/promises'
-import { channelFeedUrl, liveFeedUrl, mapWithLimit, mergeFeeds, parseRssFeed, videosFeedUrl } from '@fraitube/subscriptions'
+import { channelFeedUrl, liveFeedUrl, mapWithLimit, mergeFeeds, parseRssFeed, shortsFeedUrl, videosFeedUrl } from '@fraitube/subscriptions'
 import type { Channel, Feed, FeedVideo } from '@fraitube/subscriptions/types'
 import type { FeedProgress } from '../shared/bridge'
 
@@ -20,9 +20,13 @@ export interface FeedService {
   keepOnly(channels: readonly Channel[]): void
 }
 
-/** The fetched feed as kept between starts: when it was fetched, and each channel's videos, null for a channel that failed. */
+/**
+ * The fetched feed as kept between starts: when it was fetched, whether the channels' Shorts feeds were
+ * fetched too, and each channel's videos, null for a channel that failed.
+ */
 export interface SavedFeed {
   fetchedAt: number
+  shorts?: boolean
   channels: [string, FeedVideo[] | null][]
 }
 
@@ -41,7 +45,8 @@ function isFeedVideo(value: unknown): value is FeedVideo {
   return typeof video.id === 'string' && typeof video.title === 'string' && typeof video.channelId === 'string' &&
     typeof video.channelName === 'string' && typeof video.publishedAt === 'number' &&
     typeof video.viewsText === 'string' && typeof video.thumbnail === 'string' &&
-    (video.live === undefined || typeof video.live === 'boolean')
+    (video.live === undefined || typeof video.live === 'boolean') &&
+    (video.short === undefined || typeof video.short === 'boolean')
 }
 
 function isSavedChannel(value: unknown): value is [string, FeedVideo[] | null] {
@@ -54,7 +59,7 @@ export function readSavedFeed(text: string): SavedFeed | undefined {
   try {
     const data = JSON.parse(text) as Partial<SavedFeed> | null
     if (typeof data?.fetchedAt === 'number' && Array.isArray(data.channels) && data.channels.every(isSavedChannel)) {
-      return { fetchedAt: data.fetchedAt, channels: data.channels }
+      return { fetchedAt: data.fetchedAt, ...(data.shorts === true ? { shorts: true } : {}), channels: data.channels }
     }
   } catch {
     // Not a saved feed.
@@ -93,16 +98,22 @@ export function createFeedCacheFile(file: string): FeedCache {
  * The feed is saved in the cache after each fetch and read from it on the first request, so a feed
  * that is not too old yet is shown again after a restart. The saved feed holds subscribed channels
  * only. maxAgeMs gives how old a feed may be before it is fetched again, undefined for never.
+ * While showShorts is true, each channel's Shorts feed is fetched too, and a feed fetched without
+ * them is fetched again; while it is false, no Shorts feed is fetched and every short is left out.
  */
 export function createFeedService(
   fetchText: FetchText,
   now: () => number = Date.now,
   onProgress?: (progress: FeedProgress) => void,
   cache?: FeedCache,
-  maxAgeMs: () => number | undefined = () => FEED_MAX_AGE_MS
+  maxAgeMs: () => number | undefined = () => FEED_MAX_AGE_MS,
+  showShorts: () => boolean = () => false
 ): FeedService {
-  /** Each fetched channel's videos, undefined for a channel that failed, and when they were fetched. */
-  let cached: { fetchedAt: number; channels: Map<string, FeedVideo[] | undefined> } | undefined
+  /**
+   * Each fetched channel's videos, undefined for a channel that failed, when they were fetched, and
+   * whether the Shorts feeds were fetched with them.
+   */
+  let cached: { fetchedAt: number; shorts: boolean; channels: Map<string, FeedVideo[] | undefined> } | undefined
   let cacheRead = false
   let loading: { key: string; feed: Promise<Feed> } | undefined
 
@@ -111,12 +122,20 @@ export function createFeedService(
     cacheRead = true
     const saved = cache?.load()
     if (saved) {
-      cached = { fetchedAt: saved.fetchedAt, channels: new Map(saved.channels.map(([id, videos]) => [id, videos ?? undefined])) }
+      cached = {
+        fetchedAt: saved.fetchedAt,
+        shorts: saved.shorts === true,
+        channels: new Map(saved.channels.map(([id, videos]) => [id, videos ?? undefined]))
+      }
     }
   }
 
   function saveCache(fetched: NonNullable<typeof cached>): void {
-    cache?.save({ fetchedAt: fetched.fetchedAt, channels: [...fetched.channels].map(([id, videos]) => [id, videos ?? null]) })
+    cache?.save({
+      fetchedAt: fetched.fetchedAt,
+      ...(fetched.shorts ? { shorts: true } : {}),
+      channels: [...fetched.channels].map(([id, videos]) => [id, videos ?? null])
+    })
   }
 
   /** Drops what was fetched for channels not among the given ones. True when something was dropped. */
@@ -169,20 +188,39 @@ export function createFeedService(
     }
   }
 
-  /**
-   * One channel's videos and live streams, newest first, or undefined when its videos feed could not be loaded.
-   * A live stream that the full feed also has keeps its live mark.
-   */
-  async function loadChannel(channel: Channel): Promise<FeedVideo[] | undefined> {
-    const [videos, liveStreams] = await Promise.all([loadVideos(channel), loadLiveStreams(channel)])
-    return videos && mergeFeeds([liveStreams, videos])
+  /** One channel's shorts; a channel without shorts has no Shorts feed and gives none. */
+  async function loadShorts(channel: Channel): Promise<FeedVideo[]> {
+    try {
+      const response = await fetchText(shortsFeedUrl(channel.id))
+      return response.status === 200 ? readFeed(response.text, channel).map((video) => ({ ...video, short: true })) : []
+    } catch {
+      return []
+    }
   }
 
-  /** The feed of the given channels from what was fetched. A channel not fetched yet is not a failed one. */
+  /**
+   * One channel's videos and live streams, and its shorts when asked for, newest first, or undefined
+   * when its videos feed could not be loaded. A live stream or short that the full feed also has keeps
+   * its mark.
+   */
+  async function loadChannel(channel: Channel, withShorts: boolean): Promise<FeedVideo[] | undefined> {
+    const [videos, liveStreams, shorts] = await Promise.all([
+      loadVideos(channel),
+      loadLiveStreams(channel),
+      withShorts ? loadShorts(channel) : Promise.resolve([])
+    ])
+    return videos && mergeFeeds([liveStreams, shorts, videos])
+  }
+
+  /**
+   * The feed of the given channels from what was fetched. A channel not fetched yet is not a failed one.
+   * While shorts do not show, every short is left out.
+   */
   function build(channels: readonly Channel[], fetched: NonNullable<typeof cached>): Feed {
     const results = channels.map((channel) => fetched.channels.get(channel.id))
+    const videos = mergeFeeds(results.filter((list): list is FeedVideo[] => list !== undefined))
     return {
-      videos: mergeFeeds(results.filter((videos): videos is FeedVideo[] => videos !== undefined)),
+      videos: showShorts() ? videos : videos.filter((video) => !video.short),
       failedChannels: channels.filter((channel, index) => results[index] === undefined && fetched.channels.has(channel.id)),
       updatedAt: fetched.fetchedAt
     }
@@ -193,7 +231,7 @@ export function createFeedService(
     const fetchedIds: string[] = []
     let reportedAt: number | undefined
     await mapWithLimit(toFetch, FEED_CONCURRENCY, async (channel) => {
-      target.channels.set(channel.id, await loadChannel(channel))
+      target.channels.set(channel.id, await loadChannel(channel, target.shorts))
       fetchedIds.push(channel.id)
       const time = now()
       if (onProgress && fetchedIds.length < toFetch.length && (reportedAt === undefined || time - reportedAt >= FEED_PROGRESS_INTERVAL_MS)) {
@@ -204,17 +242,19 @@ export function createFeedService(
   }
 
   /**
-   * Fetches every channel when asked to, when nothing was fetched yet, or when the last fetch is
-   * older than maxAgeMs; otherwise only channels never fetched, such as a new subscription. A removed
-   * subscription needs no fetch, and what was fetched for it is dropped, also from the saved feed.
+   * Fetches every channel when asked to, when nothing was fetched yet, when the last fetch is older
+   * than maxAgeMs, or when shorts show and the last fetch was without them; otherwise only channels
+   * never fetched, such as a new subscription. A removed subscription needs no fetch, and what was
+   * fetched for it is dropped, also from the saved feed.
    */
   async function load(channels: readonly Channel[], refresh: boolean): Promise<Feed> {
     const dropped = dropOthers(channels)
+    const withShorts = showShorts()
     // A fetch time ahead of the clock, as after the clock was turned back, counts as old.
     const age = cached ? now() - cached.fetchedAt : -1
     const maxAge = maxAgeMs()
-    if (refresh || !cached || age < 0 || (maxAge !== undefined && age >= maxAge)) {
-      const next = { fetchedAt: now(), channels: new Map<string, FeedVideo[] | undefined>() }
+    if (refresh || !cached || age < 0 || (maxAge !== undefined && age >= maxAge) || (withShorts && !cached.shorts)) {
+      const next = { fetchedAt: now(), shorts: withShorts, channels: new Map<string, FeedVideo[] | undefined>() }
       await fetchInto(next, channels)
       cached = next
       saveCache(next)
@@ -238,7 +278,7 @@ export function createFeedService(
       }
     },
     get(channels, refresh) {
-      const key = `${refresh ? 'refresh:' : ''}${channels.map((channel) => channel.id).sort().join(',')}`
+      const key = `${refresh ? 'refresh:' : ''}${showShorts() ? 'shorts:' : ''}${channels.map((channel) => channel.id).sort().join(',')}`
       if (loading?.key === key) {
         return loading.feed
       }

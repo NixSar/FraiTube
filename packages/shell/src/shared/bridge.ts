@@ -309,7 +309,8 @@ export function isProxyRequest(value: unknown): value is ProxyRequest {
 /** Longest search query accepted from a page. */
 export const MAX_QUERY_LENGTH = 200
 
-const SEARCH_FILTERS = new Set(['all', 'videos', 'live', 'channels'])
+const SEARCH_FILTERS = new Set(['all', 'videos', 'live', 'channels', 'shorts'])
+const CHANNEL_TABS = new Set(['videos', 'shorts'])
 const CONTINUATION = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function isSearchRequest(value: unknown): value is SearchRequest {
@@ -330,8 +331,8 @@ export function isSuggestionText(value: unknown): value is string {
 }
 
 /**
- * The channel ID is checked separately; a search query is not blank and not too long, and the
- * continuation is an ID the main process handed out.
+ * The channel ID is checked separately; a search query is not blank and not too long, the tab is
+ * Videos or Shorts, and the continuation is an ID the main process handed out.
  */
 export function isChannelVideosRequest(value: unknown): value is ChannelVideosRequest {
   if (typeof value !== 'object' || value === null) {
@@ -340,6 +341,7 @@ export function isChannelVideosRequest(value: unknown): value is ChannelVideosRe
   const request = value as Partial<ChannelVideosRequest>
   return typeof request.channelId === 'string' &&
     (request.query === undefined || (typeof request.query === 'string' && request.query.trim().length > 0 && request.query.length <= MAX_QUERY_LENGTH)) &&
+    (request.tab === undefined || (typeof request.tab === 'string' && CHANNEL_TABS.has(request.tab))) &&
     (request.continuation === undefined || (typeof request.continuation === 'string' && CONTINUATION.test(request.continuation)))
 }
 

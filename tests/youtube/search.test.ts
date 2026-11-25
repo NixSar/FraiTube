@@ -155,6 +155,10 @@ describe('FILTER_OPTIONS', () => {
     expect(FILTER_OPTIONS.live).toEqual({ type: 'video', features: ['live'] })
     expect(FILTER_OPTIONS.videos).toEqual({ type: 'video' })
   })
+
+  it('asks for shorts only with the Shorts filter', () => {
+    expect(FILTER_OPTIONS.shorts).toEqual({ type: 'shorts' })
+  })
 })
 
 describe('parseRawResults', () => {

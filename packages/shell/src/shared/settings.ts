@@ -35,9 +35,20 @@ export const SettingKey = {
   startPage: 'appearance.startPage',
   feedRefresh: 'subscriptions.refresh',
   checkUpdates: 'updates.checkOnStart',
+  showShorts: 'shorts.show',
   dismissedUpdate: 'updates.dismissed',
   windowBounds: 'window.bounds'
 } as const
+
+/** Whether shorts show, for a saved Show Shorts value: only when it is turned on. */
+export function shortsShown(value: unknown): boolean {
+  return value === true
+}
+
+/** The items to show: every one while shorts show, otherwise those not marked as shorts. */
+export function withoutHiddenShorts<Item extends { short?: boolean }>(items: readonly Item[], showShorts: boolean): Item[] {
+  return showShorts ? [...items] : items.filter((item) => item.short !== true)
+}
 
 /** The route the app opens at for a saved start page value, New videos when the value is not one of the tabs. */
 export function startPageRoute(value: unknown): string {
@@ -66,6 +77,7 @@ export const shellSettings: SettingsSection = {
     { key: SettingKey.startPage, label: 'Open the app at', group: 'General', type: 'choice', options: START_PAGES, default: 'subscriptions' },
     { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'General', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },
     { key: SettingKey.checkUpdates, label: 'Check for updates when FraiTube starts', group: 'General', type: 'boolean', default: true },
+    { key: SettingKey.showShorts, label: 'Show Shorts', group: 'General', type: 'boolean', default: false },
     // The version whose update banner was dismissed; the banner shows again for a newer one.
     { key: SettingKey.dismissedUpdate, label: 'Dismissed update', group: 'General', type: 'text', maxLength: 40, default: '', local: true, hidden: true },
     {

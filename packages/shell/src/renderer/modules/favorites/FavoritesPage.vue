@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { timeAgo } from '@fraitube/subscriptions'
 import { videoThumbnail } from '../../../shared/history'
+import { SettingKey, shortsShown, withoutHiddenShorts } from '../../../shared/settings'
+import { settings } from '../../settings'
 import { usePaging } from '../../components/paging'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
@@ -14,7 +16,9 @@ const { favorites, loaded } = useFavorites()
 const { favoriteItem } = useFavoriteMenuItem()
 const { watchedItem } = useWatchedMenuItem()
 const { progressOf } = useWatchProgress()
-const { shown, hasMore, showMore } = usePaging(() => favorites.value)
+/** The favorites shown: shorts only while Show Shorts is on. */
+const shownFavorites = computed(() => withoutHiddenShorts(favorites.value, shortsShown(settings[SettingKey.showShorts])))
+const { shown, hasMore, showMore } = usePaging(() => shownFavorites.value)
 
 // The "added" texts stay current.
 const now = ref(Date.now())
@@ -30,7 +34,7 @@ onBeforeUnmount(() => {
   <div class="favorites-page">
     <h1>Favorites</h1>
     <p
-      v-if="loaded && favorites.length === 0"
+      v-if="loaded && shownFavorites.length === 0"
       class="meta"
     >
       No favorites yet. Add videos from their ⋮ menu.
@@ -53,7 +57,8 @@ onBeforeUnmount(() => {
           :channel-name="favorite.channelName"
           :channel-avatar="favorite.channelAvatar"
           :details="[`Added ${timeAgo(favorite.addedAt, now)}`]"
-          :menu-items="[playInNewWindowItem(favorite.videoId), watchedItem(favorite), favoriteItem(favorite)]"
+          :menu-items="[playInNewWindowItem(favorite.videoId, favorite.short), watchedItem(favorite), favoriteItem(favorite)]"
+          :short="favorite.short"
         />
       </li>
     </VideoGrid>

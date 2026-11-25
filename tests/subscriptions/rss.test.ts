@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { channelFeedUrl, decodeXmlText, liveFeedUrl, parseRssFeed, videosFeedUrl } from '../../packages/subscriptions/src/rss'
+import { channelFeedUrl, decodeXmlText, liveFeedUrl, parseRssFeed, shortsFeedUrl, videosFeedUrl } from '../../packages/subscriptions/src/rss'
 import { GAMERS_NEXUS, rssFeed } from './fixtures'
 
 describe('feed URLs', () => {
@@ -10,6 +10,20 @@ describe('feed URLs', () => {
 
   it('uses the live-streams playlist feed for live streams', () => {
     expect(liveFeedUrl(GAMERS_NEXUS)).toBe('https://www.youtube.com/feeds/videos.xml?playlist_id=UULVhIs72whgZI9w6d6FhwGGHA')
+  })
+
+  it('uses the Shorts playlist feed for shorts', () => {
+    expect(shortsFeedUrl(GAMERS_NEXUS)).toBe('https://www.youtube.com/feeds/videos.xml?playlist_id=UUSHhIs72whgZI9w6d6FhwGGHA')
+  })
+})
+
+describe('parseRssFeed short marks', () => {
+  const entry = (id: string, link: string): string =>
+    `<entry><yt:videoId>${id}</yt:videoId><title>${id}</title><link rel="alternate" href="${link}"/><published>2026-11-22T14:00:00Z</published></entry>`
+
+  it('marks the videos linked to the Shorts player as shorts, and no other', () => {
+    const videos = parseRssFeed(`<feed>${entry('W5FeihU43oc', 'https://www.youtube.com/shorts/W5FeihU43oc')}${entry('d3QQHqRmvH4', 'https://www.youtube.com/watch?v=d3QQHqRmvH4')}</feed>`)
+    expect(videos.map((video) => [video.id, video.short])).toEqual([['W5FeihU43oc', true], ['d3QQHqRmvH4', undefined]])
   })
 })
 

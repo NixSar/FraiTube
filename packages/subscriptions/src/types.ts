@@ -23,6 +23,8 @@ export interface FeedVideo {
   thumbnail: string
   /** True for a live stream from the channel's live feed: a running, ended or scheduled one. */
   live?: boolean
+  /** True for a short: from the channel's Shorts feed, or linked to the Shorts player in its full feed. */
+  short?: boolean
 }
 
 export interface Feed {

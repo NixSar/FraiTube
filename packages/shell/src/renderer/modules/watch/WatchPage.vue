@@ -7,7 +7,7 @@ import ChapterList from './ChapterList.vue'
 import CommentsSection from './CommentsSection.vue'
 import WatchActions from './WatchActions.vue'
 import { startSecondsFrom, subtitlesFrom, withoutStart } from '../../../shared/pip'
-import { controls, details, loadingVideo, openVideo, pageSlot, playback, playbackError } from './nowPlaying'
+import { controls, details, loadingVideo, markShort, openVideo, pageSlot, playback, playbackError } from './nowPlaying'
 import { VIDEO_DETAILS_STATUS } from './playerStatus'
 import WaitingMessage from '../../components/WaitingMessage.vue'
 
@@ -29,6 +29,10 @@ let readStartOf: string | undefined
 watch(() => [route.params['videoId'], route.query['t'], route.query['cc']], ([videoId, t, cc]) => {
   if (typeof videoId !== 'string') {
     return
+  }
+  // A short's card and a Shorts link open the page with "short", so the history saves it as a short.
+  if (route.query['short'] === '1') {
+    markShort(videoId)
   }
   const cleaned = withoutStart(route.query)
   if (!cleaned && readStartOf === videoId) {

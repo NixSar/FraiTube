@@ -19,7 +19,7 @@ export const historySchema: ModuleSchema = {
 export interface HistoryStore {
   /** Every watched video, last watched first. */
   list(): HistoryEntry[]
-  /** Records that a video was opened now, keeping its saved position and watched state. */
+  /** Records that a video was opened now, keeping its saved position, watched state and short mark. */
   record(video: HistoryVideo): HistoryEntry
   /** Saves where a recorded video stopped; a position at its end marks it as watched. True when the saved position changed. */
   savePosition(videoId: string, positionSeconds: number): boolean
@@ -58,7 +58,9 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
         channelAvatar: video.channelAvatar ?? '',
         durationSeconds: video.durationSeconds,
         watchedAt: now(),
-        positionSeconds: known?.positionSeconds ?? 0
+        positionSeconds: known?.positionSeconds ?? 0,
+        // A video once opened as a short stays marked as one.
+        ...(video.short === true || known?.short === true ? { short: true } : {})
       }
       // The watched state stays. An entry saved before the mark was kept gets it here when it played to
       // its end, so starting it over keeps it watched.
@@ -86,11 +88,12 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
           table.put(entry.videoId, entry)
           summary.added++
         } else if (entry.watchedAt > known.watchedAt) {
-          // The watched or unwatched mark set here stays.
+          // The watched or unwatched mark and the short mark set here stay.
           table.put(entry.videoId, {
             ...entry,
             channelAvatar: known.channelAvatar || entry.channelAvatar || '',
-            ...(known.watched === undefined ? {} : { watched: known.watched })
+            ...(known.watched === undefined ? {} : { watched: known.watched }),
+            ...(known.short === true ? { short: true } : {})
           })
           summary.updated++
         } else {
@@ -102,8 +105,8 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
     markWatched(video) {
       const entry = current(video.videoId)
       if (entry) {
-        if (entry.watched !== true) {
-          table.put(video.videoId, { ...entry, watched: true })
+        if (entry.watched !== true || (video.short === true && entry.short !== true)) {
+          table.put(video.videoId, { ...entry, watched: true, ...(video.short === true ? { short: true } : {}) })
         }
         return
       }
@@ -116,7 +119,8 @@ export function createHistoryStore(storage: Storage, now: () => number = Date.no
         durationSeconds: video.durationSeconds,
         watchedAt: now(),
         positionSeconds: 0,
-        watched: true
+        watched: true,
+        ...(video.short === true ? { short: true } : {})
       })
     },
     markUnwatched(videoId) {

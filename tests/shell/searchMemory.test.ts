@@ -19,6 +19,17 @@ describe('createSearchMemory', () => {
     expect(memory.get('dogs', 'all')).toBeUndefined()
   })
 
+  it('keeps a search apart for each Show Shorts setting', () => {
+    const memory = createSearchMemory()
+    memory.keep('cats', 'all', kept('a'), true)
+    expect(memory.get('cats', 'all')).toBeUndefined()
+    expect(memory.get('cats', 'all', false)).toBeUndefined()
+    expect(memory.get('cats', 'all', true)).toEqual(kept('a'))
+    memory.keep('cats', 'all', kept('b'))
+    expect(memory.get('cats', 'all', true)).toEqual(kept('a'))
+    expect(memory.get('cats', 'all', false)).toEqual(kept('b'))
+  })
+
   it('keeps a copy, so later changes to the shown lists do not change it', () => {
     const memory = createSearchMemory()
     const search = kept('a')

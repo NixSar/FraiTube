@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { normalizeAvatar } from '@fraitube/subscriptions'
 import type { ChannelResult, SearchFilter, VideoResult } from '@fraitube/youtube/types'
+import { SettingKey, shortsShown } from '../../../shared/settings'
+import { settings } from '../../settings'
 import ChannelAvatar from '../subscriptions/ChannelAvatar.vue'
 import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
@@ -17,14 +19,18 @@ const FILTERS: { value: SearchFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'videos', label: 'Videos' },
   { value: 'live', label: 'Live' },
+  { value: 'shorts', label: 'Shorts' },
   { value: 'channels', label: 'Channels' }
 ]
 
 const route = useRoute()
 const { avatarOf } = useSubscriptions()
+const showShorts = computed(() => shortsShown(settings[SettingKey.showShorts]))
+/** The filters offered: Shorts only while Show Shorts is on. */
+const filters = computed(() => FILTERS.filter((filter) => filter.value !== 'shorts' || showShorts.value))
 const videos = ref<VideoResult[]>([])
 const channels = ref<ChannelResult[]>([])
-// Kept with the search's results; this page does not show them.
+/** The search's shorts, kept with its results and shown in a row of their own while Show Shorts is on. */
 const shorts = ref<VideoResult[]>([])
 const continuation = ref<string>()
 const loading = ref(false)
@@ -40,7 +46,7 @@ function currentQuery(): string {
 
 function currentFilter(): SearchFilter {
   const type = route.query['type']
-  return FILTERS.some((filter) => filter.value === type) ? (type as SearchFilter) : 'all'
+  return filters.value.some((filter) => filter.value === type) ? (type as SearchFilter) : 'all'
 }
 
 async function load(more: boolean): Promise<void> {
@@ -49,9 +55,10 @@ async function load(more: boolean): Promise<void> {
     return
   }
   const filter = currentFilter()
+  const withShorts = showShorts.value
   const id = more ? searchId : ++searchId
   if (!more) {
-    const kept = searchMemory.get(query, filter)
+    const kept = searchMemory.get(query, filter, withShorts)
     videos.value = kept?.videos ?? []
     channels.value = kept?.channels ?? []
     shorts.value = kept?.shorts ?? []
@@ -76,7 +83,7 @@ async function load(more: boolean): Promise<void> {
     shorts.value.push(...page.shorts.filter((video) => !seenVideos.has(video.id)))
     channels.value.push(...page.channels.filter((channel) => !seenChannels.has(channel.id)))
     continuation.value = page.continuation
-    searchMemory.keep(query, filter, { videos: videos.value, channels: channels.value, shorts: shorts.value, continuation: continuation.value })
+    searchMemory.keep(query, filter, { videos: videos.value, channels: channels.value, shorts: shorts.value, continuation: continuation.value }, withShorts)
   } catch (cause) {
     if (id === searchId) {
       error.value = cause instanceof Error ? cause.message : String(cause)
@@ -88,7 +95,7 @@ async function load(more: boolean): Promise<void> {
   }
 }
 
-watch(() => [route.query['q'], route.query['type']], () => {
+watch(() => [route.query['q'], route.query['type'], showShorts.value], () => {
   void load(false)
 }, { immediate: true })
 </script>
@@ -97,7 +104,7 @@ watch(() => [route.query['q'], route.query['type']], () => {
   <div class="search-page">
     <nav class="filters">
       <RouterLink
-        v-for="filter in FILTERS"
+        v-for="filter in filters"
         :key="filter.value"
         :to="{ name: 'search', query: { q: currentQuery(), type: filter.value === 'all' ? undefined : filter.value } }"
         class="filter"
@@ -149,6 +156,31 @@ watch(() => [route.query['q'], route.query['type']], () => {
     </section>
 
     <section
+      v-if="showShorts && shorts.length > 0"
+      class="group"
+    >
+      <h2>Shorts</h2>
+      <VideoGrid :has-more="false">
+        <li
+          v-for="video in shorts"
+          :key="video.id"
+        >
+          <VideoCard
+            :video-id="video.id"
+            :title="video.title"
+            :thumbnail="video.thumbnail"
+            :progress="progressOf(video.id)"
+            :channel-id="video.channelId"
+            :channel-name="video.channelName"
+            :channel-avatar="normalizeAvatar(video.channelAvatar)"
+            :details="[video.viewsText, video.publishedText]"
+            short
+          />
+        </li>
+      </VideoGrid>
+    </section>
+
+    <section
       v-if="videos.length > 0"
       class="group"
     >
@@ -177,7 +209,7 @@ watch(() => [route.query['q'], route.query['type']], () => {
     </section>
 
     <p
-      v-if="!loading && !error && videos.length === 0 && channels.length === 0 && currentQuery()"
+      v-if="!loading && !error && videos.length === 0 && channels.length === 0 && !(showShorts && shorts.length > 0) && currentQuery()"
       class="meta"
     >
       No results.

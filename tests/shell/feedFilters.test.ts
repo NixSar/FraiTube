@@ -6,6 +6,7 @@ import {
   earliestPublished,
   feedChannels,
   feedFiltersQuery,
+  feedTypes,
   filterFeed,
   hasActiveFilters,
   readFeedFilters,
@@ -51,6 +52,21 @@ describe('filterFeed', () => {
   it('shows only videos or only live streams', () => {
     expect(ids({ type: 'live' })).toEqual(['livestrm001', 'scheduled01'])
     expect(ids({ type: 'videos' })).toEqual(['newvideo001', 'hwunbox0001', 'oldvideo001', 'ancient0001'])
+  })
+
+  it('shows only shorts with the Shorts filter, and leaves them out of Videos', () => {
+    const withShort = [...videos, video('shortvid001', { title: 'A short', short: true })]
+    const pick = (type: FeedFilters['type']): string[] =>
+      filterFeed(withShort, { ...DEFAULT_FEED_FILTERS, type }, (videoId) => history.get(videoId), NOW).map((found) => found.id)
+    expect(pick('shorts')).toEqual(['shortvid001'])
+    expect(pick('videos')).not.toContain('shortvid001')
+    expect(pick('all')).toContain('shortvid001')
+    expect(readFeedFilters({ type: 'shorts' }).type).toBe('shorts')
+  })
+
+  it('offers the Shorts filter only while shorts show', () => {
+    expect(feedTypes(false).map((option) => option.value)).toEqual(['all', 'videos', 'live'])
+    expect(feedTypes(true).map((option) => option.value)).toEqual(['all', 'videos', 'live', 'shorts'])
   })
 
   it('shows the unwatched videos, or the ones in progress', () => {
@@ -101,7 +117,7 @@ describe('readFeedFilters and feedFiltersQuery', () => {
 
   it('reads a missing or unknown value as the default one', () => {
     expect(readFeedFilters({})).toEqual(DEFAULT_FEED_FILTERS)
-    expect(readFeedFilters({ type: 'shorts', watched: ['all'], date: 'year', channel: 'not a channel', title: 5 })).toEqual(DEFAULT_FEED_FILTERS)
+    expect(readFeedFilters({ type: 'podcasts', watched: ['all'], date: 'year', channel: 'not a channel', title: 5 })).toEqual(DEFAULT_FEED_FILTERS)
   })
 
   it('keeps at most 100 characters of the title', () => {
