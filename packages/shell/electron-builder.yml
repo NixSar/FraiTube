@@ -1,4 +1,5 @@
-# Packs the built app in out/ into the Windows installer and the Linux AppImage.
+# Packs the built app in out/ into the Windows installer and the Linux AppImage, for the processor
+# scripts/package.mjs names. The names here are the x64 files'; that script names the ARM64 files.
 appId: fraitube
 productName: FraiTube
 copyright: Copyright (C) 2026 NixSar
@@ -13,15 +14,11 @@ publish: null
 toolsets:
   appimage: 1.0.3
 win:
-  target:
-    - target: nsis
-      arch: x64
+  target: nsis
 nsis:
   artifactName: ${productName}-${version}-setup.${ext}
 linux:
-  target:
-    - target: AppImage
-      arch: x64
+  target: AppImage
   executableName: fraitube
   category: AudioVideo
   synopsis: A desktop YouTube app that needs no Google account.

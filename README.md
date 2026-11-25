@@ -48,8 +48,8 @@ FraiTube connects to YouTube's and Google's servers to find and play videos, to 
 
 Get the latest version from the [Releases page](https://github.com/NixSar/FraiTube/releases).
 
-- Windows: download `FraiTube-<version>-setup.exe` and run it. The installer is not signed, so Windows SmartScreen may show "Windows protected your PC"; click "More info", then "Run anyway".
-- Linux: download `FraiTube-<version>-x86_64.AppImage`, make it executable with `chmod +x FraiTube-*.AppImage` or in its file properties, and run it.
+- Windows: download `FraiTube-<version>-setup.exe`, or `FraiTube-<version>-setup-arm64.exe` for a Windows on ARM computer, and run it. The installer is not signed, so Windows SmartScreen may show "Windows protected your PC"; click "More info", then "Run anyway".
+- Linux: download `FraiTube-<version>-x86_64.AppImage`, or `FraiTube-<version>-aarch64.AppImage` for an ARM64 computer, make it executable with `chmod +x FraiTube-*.AppImage` or in its file properties, and run it.
 
 ## Running from the source code
 

@@ -78,7 +78,7 @@ export function registerUpdateHandlers(settings: SettingsStore): UpdateService {
       if (!response.ok) {
         throw new Error(`GitHub answered ${response.status}`)
       }
-      const latest = readRelease(await response.json(), process.platform)
+      const latest = readRelease(await response.json(), process.platform, process.arch)
       if (!latest) {
         throw new Error('GitHub\'s answer could not be read')
       }

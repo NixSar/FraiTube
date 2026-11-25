@@ -3,7 +3,7 @@ export const LATEST_RELEASE_API = 'https://api.github.com/repos/NixSar/FraiTube/
 const RELEASE_PAGE_PREFIX = 'https://github.com/NixSar/FraiTube/releases/'
 const RELEASE_FILE_PREFIX = 'https://github.com/NixSar/FraiTube/releases/download/'
 
-/** The installer file of a release for this system, with the SHA-256 GitHub lists for it. */
+/** The installer file of a release for this system and processor, with the SHA-256 GitHub lists for it. */
 export interface UpdateFile {
   name: string
   url: string
@@ -79,32 +79,41 @@ export function compareVersions(a: string, b: string): number {
   return first.preRelease < second.preRelease ? -1 : 1
 }
 
-/** Which release file is the installer for a system: the setup on Windows, the AppImage on Linux. */
-export function isInstallerFor(platform: string, name: string): boolean {
-  if (platform === 'win32') {
-    return /^FraiTube-[\w.-]+-setup\.exe$/.test(name)
+/** The name of each installer, by system and processor: the setup on Windows, the AppImage on Linux. */
+const INSTALLER_NAMES: Record<string, Record<string, RegExp>> = {
+  win32: {
+    x64: /^FraiTube-[\w.-]+-setup\.exe$/,
+    arm64: /^FraiTube-[\w.-]+-setup-arm64\.exe$/
+  },
+  linux: {
+    x64: /^FraiTube-[\w.-]+-x86_64\.AppImage$/,
+    arm64: /^FraiTube-[\w.-]+-aarch64\.AppImage$/
   }
-  if (platform === 'linux') {
-    return /^FraiTube-[\w.-]+\.AppImage$/.test(name)
-  }
-  return false
 }
 
-function readFile(asset: unknown, platform: string): UpdateFile | undefined {
+/** Which release file is the installer for a system and processor. */
+export function isInstallerFor(platform: string, arch: string, name: string): boolean {
+  return INSTALLER_NAMES[platform]?.[arch]?.test(name) === true
+}
+
+function readFile(asset: unknown, platform: string, arch: string): UpdateFile | undefined {
   if (typeof asset !== 'object' || asset === null) {
     return undefined
   }
   const { name, browser_download_url: url, size, digest } = asset as Record<string, unknown>
   const sha256 = typeof digest === 'string' ? /^sha256:([0-9a-f]{64})$/i.exec(digest)?.[1] : undefined
-  if (typeof name !== 'string' || !isInstallerFor(platform, name) || typeof url !== 'string' || !url.startsWith(RELEASE_FILE_PREFIX) ||
+  if (typeof name !== 'string' || !isInstallerFor(platform, arch, name) || typeof url !== 'string' || !url.startsWith(RELEASE_FILE_PREFIX) ||
     typeof size !== 'number' || !Number.isInteger(size) || size <= 0 || !sha256) {
     return undefined
   }
   return { name, url, size, sha256: sha256.toLowerCase() }
 }
 
-/** The release in GitHub's reply about the latest release, or undefined when the reply is not one, or is a draft or pre-release. */
-export function readRelease(reply: unknown, platform: string): Release | undefined {
+/**
+ * The release in GitHub's reply about the latest release, with its file for this system and processor,
+ * or undefined when the reply is not one, or is a draft or pre-release.
+ */
+export function readRelease(reply: unknown, platform: string, arch: string): Release | undefined {
   if (typeof reply !== 'object' || reply === null) {
     return undefined
   }
@@ -112,7 +121,7 @@ export function readRelease(reply: unknown, platform: string): Release | undefin
   if (!isVersion(tag) || typeof pageUrl !== 'string' || !pageUrl.startsWith(RELEASE_PAGE_PREFIX) || draft === true || prerelease === true) {
     return undefined
   }
-  const file = Array.isArray(assets) ? assets.map((asset) => readFile(asset, platform)).find((found) => found !== undefined) : undefined
+  const file = Array.isArray(assets) ? assets.map((asset) => readFile(asset, platform, arch)).find((found) => found !== undefined) : undefined
   return { version: tag.replace(/^v/, ''), pageUrl, ...(file && { file }) }
 }
 
