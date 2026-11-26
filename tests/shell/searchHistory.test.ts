@@ -8,7 +8,9 @@ import {
   isPastSearch,
   isSearchQuery,
   matchingSearches,
+  pickedIndex,
   searchEntries,
+  searchEntryKey,
   searchesKept,
   searchHistorySettings,
   searchKey,
@@ -179,6 +181,29 @@ describe('searchEntries', () => {
       'suggestion:minecraft live'
     ])
     expect(searchEntries([], [])).toEqual([])
+  })
+})
+
+describe('pickedIndex', () => {
+  const past = [{ query: 'minecraft', searchedAt: 1 }]
+
+  it('follows the picked entry when the suggestions around it change', () => {
+    const before = searchEntries(past, ['minecraft song', 'minecraft live'])
+    const picked = searchEntryKey(before[2]!)
+    expect(picked).toBe('suggestion:minecraft live')
+    expect(pickedIndex(before, picked)).toBe(2)
+    const after = searchEntries(past, ['minecraft live', 'minecraft mods', 'minecraft song'])
+    expect(pickedIndex(after, picked)).toBe(1)
+  })
+
+  it('picks nothing once the entry has left the list, or when none was picked', () => {
+    const entries = searchEntries(past, ['minecraft mods'])
+    expect(pickedIndex(entries, 'suggestion:minecraft live')).toBe(-1)
+    expect(pickedIndex(entries, undefined)).toBe(-1)
+  })
+
+  it('tells a past search from a suggestion with the same text', () => {
+    expect(searchEntryKey({ kind: 'suggestion', query: 'minecraft' })).not.toBe(searchEntryKey(searchEntries(past, [])[0]!))
   })
 })
 

@@ -69,8 +69,12 @@ export function createSuggester(
               show(typed, suggestions)
             }
           },
-          // A failed ask shows no suggestions and is asked again the next time the text is typed.
-          () => undefined
+          // A failed ask shows no suggestions for its text and is asked again the next time the text is typed.
+          () => {
+            if (wanted === typed) {
+              show(typed, [])
+            }
+          }
         )
       }, delay)
     },

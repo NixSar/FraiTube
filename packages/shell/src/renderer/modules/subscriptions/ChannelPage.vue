@@ -214,7 +214,7 @@ watch(() => [route.params['channelId'], route.query['q'], currentTab()], () => {
     </VideoGrid>
 
     <p
-      v-if="!loading && !error && channel && shownVideos.length === 0"
+      v-if="!loading && !error && !continuation && channel && shownVideos.length === 0"
       class="meta"
     >
       {{ currentQuery() ? 'No videos on this channel match the search.' : currentTab() === 'shorts' ? 'This channel has no shorts.' : 'This channel has no videos.' }}

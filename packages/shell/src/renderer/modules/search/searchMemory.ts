@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import type { ChannelResult, SearchFilter, VideoResult } from '@fraitube/youtube/types'
 
 /** How many searches keep their results while the app runs, as many as the main process keeps next pages for. */
@@ -16,11 +17,13 @@ export interface SearchMemory {
   get(query: string, filter: SearchFilter, showShorts?: boolean): KeptSearch | undefined
   /** Keeps what a search shows now, in place of what was kept for it with the same Show Shorts setting. */
   keep(query: string, filter: SearchFilter, search: KeptSearch, showShorts?: boolean): void
+  /** Forgets what was kept for a search text, with every filter and both Show Shorts settings. */
+  forget(query: string): void
 }
 
 /**
- * Keeps the results of the last searches, so going back to one or running it again shows it at once.
- * A search is kept apart for each Show Shorts setting.
+ * Keeps the results of the last searches, so going back to one or changing its filter shows it at once.
+ * A search is kept apart for each Show Shorts setting, until its text is searched from the search box.
  */
 export function createSearchMemory(limit = KEPT_SEARCHES): SearchMemory {
   const kept = new Map<string, KeptSearch>()
@@ -50,9 +53,20 @@ export function createSearchMemory(limit = KEPT_SEARCHES): SearchMemory {
         if (kept.size <= limit) break
         kept.delete(oldest)
       }
+    },
+    forget(query) {
+      for (const key of [...kept.keys()]) {
+        // A key is the Show Shorts setting, the filter and the text, each on its own line.
+        if (key.split('\n').slice(2).join('\n') === query) {
+          kept.delete(key)
+        }
+      }
     }
   }
 }
 
 /** The searches of this window. */
 export const searchMemory = createSearchMemory()
+
+/** Counts the searches run from the search box while their results already show, which the search page then runs again. */
+export const searchRuns = ref(0)

@@ -20,6 +20,14 @@ function seekTo(seconds: number): void {
   controls.value?.seekTo(seconds)
 }
 
+// A short's card and a Shorts link open the page with "short", so the history saves the video as a short,
+// also when the page already shows it.
+watch(() => (route.query['short'] === '1' ? route.params['videoId'] : undefined), (videoId) => {
+  if (typeof videoId === 'string') {
+    markShort(videoId)
+  }
+}, { immediate: true })
+
 /** The video whose "t" and "cc" were read and are being taken out of the address. */
 let readStartOf: string | undefined
 
@@ -29,10 +37,6 @@ let readStartOf: string | undefined
 watch(() => [route.params['videoId'], route.query['t'], route.query['cc']], ([videoId, t, cc]) => {
   if (typeof videoId !== 'string') {
     return
-  }
-  // A short's card and a Shorts link open the page with "short", so the history saves it as a short.
-  if (route.query['short'] === '1') {
-    markShort(videoId)
   }
   const cleaned = withoutStart(route.query)
   if (!cleaned && readStartOf === videoId) {

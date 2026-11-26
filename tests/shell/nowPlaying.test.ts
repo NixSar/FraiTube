@@ -9,8 +9,11 @@ import {
   handingOff,
   handOffToPip,
   handOverNow,
+  historyVideoOf,
+  isMarkedShort,
   takingOver,
   loadingVideo,
+  markShort,
   openVideo,
   placeAfterLeaving,
   playback,
@@ -38,6 +41,43 @@ afterEach(() => {
   closeVideo()
   controls.value = undefined
   vi.unstubAllGlobals()
+})
+
+describe('a video opened as a short', () => {
+  function playing(videoId: string): VideoPlayback {
+    return { videoId, title: 'A short', channelId: 'UCabcdefghijklmnopqrstuv', author: 'A channel', about: { channelIcon: '' }, durationSeconds: 42 } as VideoPlayback
+  }
+
+  it('is saved with the short mark by the player when it starts', () => {
+    expect(historyVideoOf(playing('shortaaaaa1')).short).toBeUndefined()
+    stubBridge(() => new Promise(() => undefined))
+    const recordHistory = vi.fn(() => Promise.resolve())
+    Object.assign(window.fraitube, { recordHistory })
+    markShort('shortaaaaa1')
+    expect(recordHistory).not.toHaveBeenCalled()
+    expect(isMarkedShort('shortaaaaa1')).toBe(true)
+    expect(historyVideoOf(playing('shortaaaaa1'))).toEqual({
+      videoId: 'shortaaaaa1',
+      title: 'A short',
+      channelId: 'UCabcdefghijklmnopqrstuv',
+      channelName: 'A channel',
+      channelAvatar: '',
+      durationSeconds: 42,
+      short: true
+    })
+  })
+
+  it('is saved again with the mark at once when it is already playing, and only once', async () => {
+    stubBridge((videoId) => Promise.resolve(playing(videoId)))
+    const recordHistory = vi.fn(() => Promise.resolve())
+    Object.assign(window.fraitube, { recordHistory })
+    await openVideo('shortaaaaa2')
+    expect(playback.value?.videoId).toBe('shortaaaaa2')
+    markShort('shortaaaaa2')
+    expect(recordHistory).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ videoId: 'shortaaaaa2', short: true }))
+    markShort('shortaaaaa2')
+    expect(recordHistory).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('leaving the watch page', () => {

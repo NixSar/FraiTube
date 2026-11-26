@@ -41,6 +41,16 @@ export type SearchEntry =
   | { kind: 'past'; query: string; past: PastSearch }
   | { kind: 'suggestion'; query: string }
 
+/** What tells an entry apart from the others in the list: its kind and its text. */
+export function searchEntryKey(entry: SearchEntry): string {
+  return `${entry.kind}:${entry.query}`
+}
+
+/** The place in the list of the entry picked by its key, -1 when none is picked or it is not in the list. */
+export function pickedIndex(entries: readonly SearchEntry[], picked: string | undefined): number {
+  return picked === undefined ? -1 : entries.findIndex((entry) => searchEntryKey(entry) === picked)
+}
+
 /**
  * The entries under the search box: the shown past searches, then the suggestions that are not in the
  * history, at most `limit` entries.

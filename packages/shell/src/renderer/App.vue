@@ -11,9 +11,18 @@ import AppIcon from './components/AppIcon.vue'
 import UpdateBanner from './components/UpdateBanner.vue'
 import { isIconName } from './components/icons'
 import { settings } from './settings'
-import { matchingSearches, searchEntries, SearchHistorySettingKey, type PastSearch, type SearchEntry } from '../shared/searchHistory'
+import {
+  matchingSearches,
+  pickedIndex,
+  searchEntries,
+  searchEntryKey,
+  SearchHistorySettingKey,
+  type PastSearch,
+  type SearchEntry
+} from '../shared/searchHistory'
 import { usePastSearches } from './modules/searchHistory/store'
 import { createSuggester } from './searchSuggestions'
+import { searchMemory, searchRuns } from './modules/search/searchMemory'
 
 const props = defineProps<{
   nav: NavItem[]
@@ -92,8 +101,8 @@ watch(() => route.query['q'], (q) => {
 const pastSearches = usePastSearches()
 /** Whether the past searches and suggestions show under the search box, while it has the focus. */
 const listOpen = ref(false)
-/** The entry picked with the arrow keys, -1 for none. */
-const highlighted = ref(-1)
+/** The entry picked with the arrow keys, by its kind and text, so it stays picked while the list around it changes. */
+const picked = ref<string>()
 
 /** Whether YouTube is asked for suggestions while typing. While it is off, nothing typed leaves the app before a search. */
 const suggestOn = computed(() =>
@@ -144,21 +153,31 @@ const shownSearches = computed((): SearchEntry[] => {
   return searchEntries(past, suggested, remember ? pastSearches.value : [])
 })
 
+/** The picked entry's place in the list, -1 for none. */
+const highlighted = computed(() => pickedIndex(shownSearches.value, picked.value))
+// An entry that leaves the list is no longer picked.
+watch(highlighted, (index) => {
+  if (index < 0) {
+    picked.value = undefined
+  }
+})
+
 function openList(): void {
   listOpen.value = true
-  highlighted.value = -1
+  picked.value = undefined
   askSuggestions()
 }
 
 function closeList(): void {
   listOpen.value = false
-  highlighted.value = -1
+  picked.value = undefined
   dropSuggestions()
 }
 
 /**
  * A YouTube video link opens the video, a Shorts link marked as a short; anything else is searched and
- * saved in the search history.
+ * saved in the search history. A search always runs fresh: what was kept for its text is forgotten,
+ * and a search that already shows runs again.
  */
 function search(): void {
   closeList()
@@ -173,7 +192,13 @@ function search(): void {
   } else {
     // When saving fails, the search still runs.
     window.fraitube.addSearch(text).catch(() => undefined)
-    void router.push({ name: 'search', query: { q: text } })
+    searchMemory.forget(text)
+    const target = { name: 'search', query: { q: text } }
+    if (router.resolve(target).fullPath === route.fullPath) {
+      searchRuns.value++
+    } else {
+      void router.push(target)
+    }
   }
 }
 
@@ -199,7 +224,8 @@ function onSearchKey(event: KeyboardEvent): void {
     if (count > 0) {
       // Past the last entry or before the first, the typed text is back, with no entry picked.
       const next = highlighted.value + (event.key === 'ArrowDown' ? 1 : -1)
-      highlighted.value = next >= count ? -1 : next < -1 ? count - 1 : next
+      const entry = shownSearches.value[next >= count ? -1 : next < -1 ? count - 1 : next]
+      picked.value = entry && searchEntryKey(entry)
       event.preventDefault()
     }
   } else if (event.key === 'Enter') {
@@ -318,7 +344,7 @@ function onLinkAuxClick(event: MouseEvent, to: RouteLocationRaw): void {
           <li
             v-for="(entry, index) in shownSearches"
             :id="`past-search-${index}`"
-            :key="`${entry.kind}:${entry.query}`"
+            :key="searchEntryKey(entry)"
             role="option"
             class="past-search"
             :class="{ highlighted: index === highlighted }"

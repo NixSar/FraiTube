@@ -22,11 +22,13 @@ export interface FeedService {
 
 /**
  * The fetched feed as kept between starts: when it was fetched, whether the channels' Shorts feeds were
- * fetched too, and each channel's videos, null for a channel that failed.
+ * fetched too, the channels whose Shorts feed is still to be fetched, and each channel's videos, null
+ * for a channel that failed.
  */
 export interface SavedFeed {
   fetchedAt: number
   shorts?: boolean
+  shortsMissing?: string[]
   channels: [string, FeedVideo[] | null][]
 }
 
@@ -59,7 +61,13 @@ export function readSavedFeed(text: string): SavedFeed | undefined {
   try {
     const data = JSON.parse(text) as Partial<SavedFeed> | null
     if (typeof data?.fetchedAt === 'number' && Array.isArray(data.channels) && data.channels.every(isSavedChannel)) {
-      return { fetchedAt: data.fetchedAt, ...(data.shorts === true ? { shorts: true } : {}), channels: data.channels }
+      const shortsMissing = Array.isArray(data.shortsMissing) ? data.shortsMissing.filter((id): id is string => typeof id === 'string') : []
+      return {
+        fetchedAt: data.fetchedAt,
+        ...(data.shorts === true ? { shorts: true } : {}),
+        ...(data.shorts === true && shortsMissing.length > 0 ? { shortsMissing } : {}),
+        channels: data.channels
+      }
     }
   } catch {
     // Not a saved feed.
@@ -98,8 +106,10 @@ export function createFeedCacheFile(file: string): FeedCache {
  * The feed is saved in the cache after each fetch and read from it on the first request, so a feed
  * that is not too old yet is shown again after a restart. The saved feed holds subscribed channels
  * only. maxAgeMs gives how old a feed may be before it is fetched again, undefined for never.
- * While showShorts is true, each channel's Shorts feed is fetched too, and a feed fetched without
- * them is fetched again; while it is false, no Shorts feed is fetched and every short is left out.
+ * While showShorts is true, each channel's Shorts feed is fetched too, a feed fetched without them is
+ * fetched again, and so is a channel whose Shorts feed was not fetched or failed; while it is false, no
+ * Shorts feed is fetched and every short is left out. A request that differs from the one running
+ * waits for it to end.
  */
 export function createFeedService(
   fetchText: FetchText,
@@ -110,10 +120,10 @@ export function createFeedService(
   showShorts: () => boolean = () => false
 ): FeedService {
   /**
-   * Each fetched channel's videos, undefined for a channel that failed, when they were fetched, and
-   * whether the Shorts feeds were fetched with them.
+   * Each fetched channel's videos, undefined for a channel that failed, when they were fetched, whether
+   * the Shorts feeds were fetched with them, and the channels whose Shorts feed is still to be fetched.
    */
-  let cached: { fetchedAt: number; shorts: boolean; channels: Map<string, FeedVideo[] | undefined> } | undefined
+  let cached: { fetchedAt: number; shorts: boolean; shortsMissing: Set<string>; channels: Map<string, FeedVideo[] | undefined> } | undefined
   let cacheRead = false
   let loading: { key: string; feed: Promise<Feed> } | undefined
 
@@ -125,6 +135,7 @@ export function createFeedService(
       cached = {
         fetchedAt: saved.fetchedAt,
         shorts: saved.shorts === true,
+        shortsMissing: new Set(saved.shortsMissing ?? []),
         channels: new Map(saved.channels.map(([id, videos]) => [id, videos ?? undefined]))
       }
     }
@@ -134,6 +145,7 @@ export function createFeedService(
     cache?.save({
       fetchedAt: fetched.fetchedAt,
       ...(fetched.shorts ? { shorts: true } : {}),
+      ...(fetched.shorts && fetched.shortsMissing.size > 0 ? { shortsMissing: [...fetched.shortsMissing] } : {}),
       channels: [...fetched.channels].map(([id, videos]) => [id, videos ?? null])
     })
   }
@@ -149,6 +161,7 @@ export function createFeedService(
     for (const id of [...cached.channels.keys()]) {
       if (!subscribed.has(id)) {
         cached.channels.delete(id)
+        cached.shortsMissing.delete(id)
         dropped = true
       }
     }
@@ -188,28 +201,34 @@ export function createFeedService(
     }
   }
 
-  /** One channel's shorts; a channel without shorts has no Shorts feed and gives none. */
-  async function loadShorts(channel: Channel): Promise<FeedVideo[]> {
+  /**
+   * One channel's shorts, or undefined when its Shorts feed could not be loaded. A channel without
+   * shorts has no Shorts feed and gives none.
+   */
+  async function loadShorts(channel: Channel): Promise<FeedVideo[] | undefined> {
     try {
       const response = await fetchText(shortsFeedUrl(channel.id))
-      return response.status === 200 ? readFeed(response.text, channel).map((video) => ({ ...video, short: true })) : []
+      if (response.status === 200) {
+        return readFeed(response.text, channel).map((video) => ({ ...video, short: true }))
+      }
+      return response.status === 404 ? [] : undefined
     } catch {
-      return []
+      return undefined
     }
   }
 
   /**
-   * One channel's videos and live streams, and its shorts when asked for, newest first, or undefined
-   * when its videos feed could not be loaded. A live stream or short that the full feed also has keeps
-   * its mark.
+   * One channel's videos and live streams, and its shorts when asked for, newest first; the videos are
+   * undefined when its videos feed could not be loaded. A live stream or short that the full feed also
+   * has keeps its mark. shortsLoaded tells whether the Shorts feed was asked for and loaded.
    */
-  async function loadChannel(channel: Channel, withShorts: boolean): Promise<FeedVideo[] | undefined> {
+  async function loadChannel(channel: Channel, withShorts: boolean): Promise<{ videos: FeedVideo[] | undefined; shortsLoaded: boolean }> {
     const [videos, liveStreams, shorts] = await Promise.all([
       loadVideos(channel),
       loadLiveStreams(channel),
-      withShorts ? loadShorts(channel) : Promise.resolve([])
+      withShorts ? loadShorts(channel) : Promise.resolve(undefined)
     ])
-    return videos && mergeFeeds([liveStreams, shorts, videos])
+    return { videos: videos && mergeFeeds([liveStreams, shorts ?? [], videos]), shortsLoaded: shorts !== undefined }
   }
 
   /**
@@ -226,12 +245,22 @@ export function createFeedService(
     }
   }
 
-  /** Fetches the channels into the target, sending the channels fetched so far along the way. */
-  async function fetchInto(target: NonNullable<typeof cached>, toFetch: readonly Channel[]): Promise<void> {
+  /**
+   * Fetches the channels into the target, with their Shorts feeds when asked for, sending the channels
+   * fetched so far along the way. In a feed with shorts, a channel whose videos came without its Shorts
+   * feed is noted as still missing it.
+   */
+  async function fetchInto(target: NonNullable<typeof cached>, toFetch: readonly Channel[], withShorts: boolean): Promise<void> {
     const fetchedIds: string[] = []
     let reportedAt: number | undefined
     await mapWithLimit(toFetch, FEED_CONCURRENCY, async (channel) => {
-      target.channels.set(channel.id, await loadChannel(channel, target.shorts))
+      const { videos, shortsLoaded } = await loadChannel(channel, withShorts)
+      target.channels.set(channel.id, videos)
+      if (target.shorts && videos && !shortsLoaded) {
+        target.shortsMissing.add(channel.id)
+      } else {
+        target.shortsMissing.delete(channel.id)
+      }
       fetchedIds.push(channel.id)
       const time = now()
       if (onProgress && fetchedIds.length < toFetch.length && (reportedAt === undefined || time - reportedAt >= FEED_PROGRESS_INTERVAL_MS)) {
@@ -244,8 +273,9 @@ export function createFeedService(
   /**
    * Fetches every channel when asked to, when nothing was fetched yet, when the last fetch is older
    * than maxAgeMs, or when shorts show and the last fetch was without them; otherwise only channels
-   * never fetched, such as a new subscription. A removed subscription needs no fetch, and what was
-   * fetched for it is dropped, also from the saved feed.
+   * never fetched, such as a new subscription, and, while shorts show, channels still missing their
+   * Shorts feed. A removed subscription needs no fetch, and what was fetched for it is dropped, also
+   * from the saved feed.
    */
   async function load(channels: readonly Channel[], refresh: boolean): Promise<Feed> {
     const dropped = dropOthers(channels)
@@ -254,16 +284,16 @@ export function createFeedService(
     const age = cached ? now() - cached.fetchedAt : -1
     const maxAge = maxAgeMs()
     if (refresh || !cached || age < 0 || (maxAge !== undefined && age >= maxAge) || (withShorts && !cached.shorts)) {
-      const next = { fetchedAt: now(), shorts: withShorts, channels: new Map<string, FeedVideo[] | undefined>() }
-      await fetchInto(next, channels)
+      const next = { fetchedAt: now(), shorts: withShorts, shortsMissing: new Set<string>(), channels: new Map<string, FeedVideo[] | undefined>() }
+      await fetchInto(next, channels, withShorts)
       cached = next
       saveCache(next)
       return build(channels, next)
     }
     const known = cached
-    const missing = channels.filter((channel) => !known.channels.has(channel.id))
+    const missing = channels.filter((channel) => !known.channels.has(channel.id) || (withShorts && known.shortsMissing.has(channel.id)))
     if (missing.length > 0) {
-      await fetchInto(known, missing)
+      await fetchInto(known, missing, withShorts)
     }
     if (missing.length > 0 || dropped) {
       saveCache(known)
@@ -282,7 +312,9 @@ export function createFeedService(
       if (loading?.key === key) {
         return loading.feed
       }
-      const feed = load(channels, refresh)
+      // A request that differs from the one running waits for it, so two fetches never run side by side.
+      const running = loading?.feed
+      const feed = running ? running.then(() => undefined, () => undefined).then(() => load(channels, refresh)) : load(channels, refresh)
       loading = { key, feed }
       // Happens as the load settles, so a later request never joins a finished load.
       const settle = (): void => {

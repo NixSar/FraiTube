@@ -293,6 +293,28 @@ function feedPages(counts: number[], failAt?: number): { first: SearchFeed; load
   return { first: page(0), loaded: () => loaded }
 }
 
+/** Search pages without end that each hold a full page of shorts, as a search for shorts gives them. */
+function shortsPages(): { first: SearchFeed; loaded: () => number } {
+  let loaded = 1
+  function page(index: number): SearchFeed {
+    const items = Array.from({ length: FILL_COUNT }, (_, n) => {
+      const id = `s${index}v${String(n).padStart(8, '0')}`
+      return plainVideo(id, {
+        navigationEndpoint: { commandMetadata: { webCommandMetadata: { url: `/shorts/${id}`, webPageType: 'WEB_PAGE_TYPE_SHORTS' } }, reelWatchEndpoint: { videoId: id } }
+      })
+    })
+    return {
+      results: parseRawItems(items),
+      has_continuation: true,
+      async getContinuation() {
+        loaded++
+        return page(index + 1)
+      }
+    }
+  }
+  return { first: page(0), loaded: () => loaded }
+}
+
 const ids = (results: PageResults) => results.videos.map((video) => video.id)
 
 describe('fillPage', () => {
@@ -344,6 +366,13 @@ describe('fillPage', () => {
     expect(filled.results.videos).toHaveLength(FILL_COUNT)
     expect(filled.results.shorts).toHaveLength(2)
   })
+
+  it('counts shorts in a search for shorts', async () => {
+    const pages = shortsPages()
+    const filled = await fillPage(pages.first, true)
+    expect(filled.results.shorts).toHaveLength(FILL_COUNT)
+    expect(pages.loaded()).toBe(1)
+  })
 })
 
 describe('createSearcher', () => {
@@ -385,6 +414,39 @@ describe('createSearcher', () => {
     const page = await searcher.search({ query: 'cats', filter: 'all' })
     const next = await searcher.search({ query: 'cats', filter: 'all', continuation: page.continuation! })
     expect(next.videos).toHaveLength(FILL_COUNT)
+  })
+
+  it('keeps a next page that failed to load, so it can be asked for again, and drops it once it has loaded', async () => {
+    let failures = 2
+    const second = feedPages([FILL_COUNT]).first
+    const first: SearchFeed = {
+      ...feedPages([FILL_COUNT]).first,
+      has_continuation: true,
+      async getContinuation() {
+        if (failures-- > 0) throw new Error('YouTube answered 500')
+        return second
+      }
+    }
+    const searcher = searcherOver(first)
+    const page = await searcher.search({ query: 'cats', filter: 'all' })
+    const more = { query: 'cats', filter: 'all' as const, continuation: page.continuation! }
+    await expect(searcher.search(more)).rejects.toThrow('YouTube answered 500')
+    expect((await searcher.search(more)).videos).toHaveLength(FILL_COUNT)
+    await expect(searcher.search(more)).rejects.toThrow('These search results have expired. Search again.')
+  })
+
+  it('takes one page at a time in a search for shorts, also for the page loaded ahead', async () => {
+    const pages = shortsPages()
+    const searcher = searcherOver(pages.first)
+    const page = await searcher.search({ query: 'cats', filter: 'shorts' })
+    expect(page.shorts).toHaveLength(FILL_COUNT)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(pages.loaded()).toBe(2)
+
+    const next = await searcher.search({ query: 'cats', filter: 'shorts', continuation: page.continuation! })
+    expect(next.shorts).toHaveLength(FILL_COUNT)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(pages.loaded()).toBe(3)
   })
 
   it('refuses a next page it does not know', async () => {

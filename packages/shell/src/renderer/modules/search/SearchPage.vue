@@ -13,7 +13,7 @@ import { usePaging } from '../../components/paging'
 import { useWatchProgress } from '../history/progress'
 import SubscribeButton from '../subscriptions/SubscribeButton.vue'
 import { useSubscriptions } from '../subscriptions/store'
-import { searchMemory } from './searchMemory'
+import { searchMemory, searchRuns } from './searchMemory'
 
 const FILTERS: { value: SearchFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -98,6 +98,11 @@ async function load(more: boolean): Promise<void> {
 watch(() => [route.query['q'], route.query['type'], showShorts.value], () => {
   void load(false)
 }, { immediate: true })
+
+// The search shown here was searched again from the search box, which forgot what was kept for it.
+watch(searchRuns, () => {
+  void load(false)
+})
 </script>
 
 <template>
@@ -209,7 +214,7 @@ watch(() => [route.query['q'], route.query['type'], showShorts.value], () => {
     </section>
 
     <p
-      v-if="!loading && !error && videos.length === 0 && channels.length === 0 && !(showShorts && shorts.length > 0) && currentQuery()"
+      v-if="!loading && !error && !continuation && videos.length === 0 && channels.length === 0 && !(showShorts && shorts.length > 0) && currentQuery()"
       class="meta"
     >
       No results.

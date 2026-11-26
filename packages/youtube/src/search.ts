@@ -222,12 +222,14 @@ export interface FilledPage {
 
 /**
  * A page of results, filled with up to FILL_PAGES next pages while it has fewer than FILL_COUNT videos and
- * channels. A next page that fails to load ends the filling; what comes after it can still be loaded.
+ * channels. A search for shorts counts its shorts too. A next page that fails to load ends the filling;
+ * what comes after it can still be loaded.
  */
-export async function fillPage(first: SearchFeed): Promise<FilledPage> {
+export async function fillPage(first: SearchFeed, countShorts = false): Promise<FilledPage> {
   const results = toResults(first.results ?? [])
+  const count = (): number => results.videos.length + results.channels.length + (countShorts ? results.shorts.length : 0)
   let last = first
-  for (let taken = 0; taken < FILL_PAGES && last.has_continuation && results.videos.length + results.channels.length < FILL_COUNT; taken++) {
+  for (let taken = 0; taken < FILL_PAGES && last.has_continuation && count() < FILL_COUNT; taken++) {
     let next: SearchFeed
     try {
       next = await last.getContinuation()
@@ -245,20 +247,23 @@ export interface Searcher {
 }
 
 export function createSearcher(getInnertube: () => Promise<Innertube>): Searcher {
-  /** For each unfinished search, its last page and its next page, which starts loading as soon as the page is handed out. */
-  const pending = new Map<string, { last: SearchFeed; next: Promise<FilledPage> }>()
+  /**
+   * For each unfinished search, its last page, whether it is a search for shorts, and its next page,
+   * which starts loading as soon as the page is handed out.
+   */
+  const pending = new Map<string, { last: SearchFeed; countShorts: boolean; next: Promise<FilledPage> }>()
 
-  async function nextPage(last: SearchFeed): Promise<FilledPage> {
-    return fillPage(await last.getContinuation())
+  /** The next page, loading. A failure is kept for the one who asks for the page. */
+  function nextPage(last: SearchFeed, countShorts: boolean): Promise<FilledPage> {
+    const next = last.getContinuation().then((feed) => fillPage(feed, countShorts))
+    next.catch(() => undefined)
+    return next
   }
 
-  function remember(last: SearchFeed): string | undefined {
+  function remember(last: SearchFeed, countShorts: boolean): string | undefined {
     if (!last.has_continuation) return undefined
     const token = randomUUID()
-    const next = nextPage(last)
-    // A next page that fails is loaded again when it is asked for.
-    next.catch(() => undefined)
-    pending.set(token, { last, next })
+    pending.set(token, { last, countShorts, next: nextPage(last, countShorts) })
     for (const oldest of pending.keys()) {
       if (pending.size <= REMEMBERED_SEARCHES) break
       pending.delete(oldest)
@@ -266,23 +271,31 @@ export function createSearcher(getInnertube: () => Promise<Innertube>): Searcher
     return token
   }
 
-  async function run(request: SearchRequest): Promise<FilledPage> {
+  async function run(request: SearchRequest): Promise<{ page: FilledPage; countShorts: boolean }> {
     if (request.continuation) {
-      const previous = pending.get(request.continuation)
+      const token = request.continuation
+      const previous = pending.get(token)
       if (!previous) {
         throw new Error('These search results have expired. Search again.')
       }
-      pending.delete(request.continuation)
-      return previous.next.catch(() => nextPage(previous.last))
+      // A next page that failed to load is loaded once more.
+      const page = await previous.next.catch(() => {
+        previous.next = nextPage(previous.last, previous.countShorts)
+        return previous.next
+      })
+      // The token goes once its page has loaded, so a page that failed can be asked for again.
+      pending.delete(token)
+      return { page, countShorts: previous.countShorts }
     }
+    const countShorts = request.filter === 'shorts'
     const search: YT.Search = await (await getInnertube()).search(request.query, FILTER_OPTIONS[request.filter])
-    return fillPage(search)
+    return { page: await fillPage(search, countShorts), countShorts }
   }
 
   return {
     async search(request) {
-      const { results, last } = await run(request)
-      return { ...results, continuation: remember(last) }
+      const { page, countShorts } = await run(request)
+      return { ...page.results, continuation: remember(page.last, countShorts) }
     }
   }
 }

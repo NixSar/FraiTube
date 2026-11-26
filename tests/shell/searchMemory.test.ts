@@ -63,6 +63,19 @@ describe('createSearchMemory', () => {
     expect(memory.get('three', 'all')).toBeDefined()
   })
 
+  it('forgets a search text with every filter and both Show Shorts settings, and no other text', () => {
+    const memory = createSearchMemory()
+    memory.keep('cats', 'all', kept('a'))
+    memory.keep('cats', 'videos', kept('b'))
+    memory.keep('cats', 'shorts', kept('c'), true)
+    memory.keep('big cats', 'all', kept('d'))
+    memory.forget('cats')
+    expect(memory.get('cats', 'all')).toBeUndefined()
+    expect(memory.get('cats', 'videos')).toBeUndefined()
+    expect(memory.get('cats', 'shorts', true)).toBeUndefined()
+    expect(memory.get('big cats', 'all')).toEqual(kept('d'))
+  })
+
   it('keeps as many searches as the main process keeps next pages for', () => {
     expect(KEPT_SEARCHES).toBe(50)
   })

@@ -33,21 +33,14 @@ import {
 } from '@fraitube/sabr'
 import { categoryColor, categoryNoun, isMutedAt, segmentToSkip, visibleSegments } from '@fraitube/sponsorblock'
 import type { Segment } from '@fraitube/sponsorblock/types'
-import { normalizeAvatar } from '@fraitube/subscriptions'
 import { captionErrorText } from '@fraitube/youtube/captions'
 import type { VideoPlayback } from '@fraitube/youtube/types'
-import {
-  HistorySettingKey,
-  MAX_HISTORY_CHANNEL_NAME_LENGTH,
-  MAX_HISTORY_TITLE_LENGTH,
-  positionToSave,
-  resumeSeconds
-} from '../../../shared/history'
+import { HistorySettingKey, positionToSave, resumeSeconds } from '../../../shared/history'
 import { PlayerSettingKey, readDefaultQuality, startingQuality, SUBTITLE_DEFAULTS } from '../../../shared/playerSettings'
 import { categoryModes, SponsorBlockSettingKey } from '../../../shared/sponsorBlockSettings'
 import { bridgeFetch } from '../../net'
 import { bufferedForHandOver, HAND_OVER_WAIT_MS } from './handOver'
-import { isMarkedShort } from './nowPlaying'
+import { historyVideoOf } from './nowPlaying'
 import { startingSubtitleTrack } from './subtitleStart'
 import { setSetting, settings } from '../../settings'
 import { playerStatusText } from './playerStatus'
@@ -383,15 +376,7 @@ function applySegments(element: HTMLVideoElement): void {
 /** Records the video in the history and returns where it starts. */
 async function startPosition(playback: VideoPlayback): Promise<number> {
   try {
-    const entry = await window.fraitube.recordHistory({
-      videoId: playback.videoId,
-      title: playback.title.slice(0, MAX_HISTORY_TITLE_LENGTH),
-      channelId: playback.channelId,
-      channelName: playback.author.slice(0, MAX_HISTORY_CHANNEL_NAME_LENGTH),
-      channelAvatar: normalizeAvatar(playback.about.channelIcon),
-      durationSeconds: playback.durationSeconds,
-      ...(isMarkedShort(playback.videoId) ? { short: true } : {})
-    })
+    const entry = await window.fraitube.recordHistory(historyVideoOf(playback))
     return resumeEnabled() && !playback.isLive ? resumeSeconds(entry.positionSeconds, playback.durationSeconds) : 0
   } catch {
     return 0

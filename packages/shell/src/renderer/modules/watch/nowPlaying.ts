@@ -1,5 +1,7 @@
 import { ref, shallowRef } from 'vue'
+import { normalizeAvatar } from '@fraitube/subscriptions'
 import { videoDetailsOf, type VideoDetails, type VideoPlayback } from '@fraitube/youtube/types'
+import { MAX_HISTORY_CHANNEL_NAME_LENGTH, MAX_HISTORY_TITLE_LENGTH, type HistoryVideo } from '../../../shared/history'
 import type { HandOver } from '../../../shared/pip'
 
 /** What the watch page and the frame need from the player. */
@@ -48,14 +50,38 @@ let returningVideoId: string | undefined
 /** The videos opened as shorts in this window, from a short's card or a Shorts link. */
 const shortVideos = new Set<string>()
 
-/** Notes that a video was opened as a short, so it is saved as one in the history. */
+/**
+ * Notes that a video was opened as a short, so it is saved as one in the history. A video already
+ * playing here is saved again now, with the mark.
+ */
 export function markShort(videoId: string): void {
+  if (shortVideos.has(videoId)) {
+    return
+  }
   shortVideos.add(videoId)
+  const playing = playback.value
+  if (playing?.videoId === videoId) {
+    // When saving fails, the video keeps its entry without the mark.
+    window.fraitube.recordHistory(historyVideoOf(playing)).catch(() => undefined)
+  }
 }
 
 /** Whether a video was opened as a short in this window. */
 export function isMarkedShort(videoId: string): boolean {
   return shortVideos.has(videoId)
+}
+
+/** A video as the history saves it, marked as a short when it was opened as one in this window. */
+export function historyVideoOf(video: VideoPlayback): HistoryVideo {
+  return {
+    videoId: video.videoId,
+    title: video.title.slice(0, MAX_HISTORY_TITLE_LENGTH),
+    channelId: video.channelId,
+    channelName: video.author.slice(0, MAX_HISTORY_CHANNEL_NAME_LENGTH),
+    channelAvatar: normalizeAvatar(video.about.channelIcon),
+    durationSeconds: video.durationSeconds,
+    ...(isMarkedShort(video.videoId) ? { short: true } : {})
+  }
 }
 
 /**

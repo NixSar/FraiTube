@@ -144,7 +144,7 @@ void ready.then(() => {
     return
   }
   // Turning Show Shorts on or off loads the feed again, with or without the shorts.
-  stopFollowing = watch(() => [subscriptions.value.map((subscription) => subscription.id).join(','), showShorts.value], () => {
+  stopFollowing = watch([() => subscriptions.value.map((subscription) => subscription.id).join(','), showShorts], () => {
     void load(false)
   }, { immediate: true })
 })

@@ -85,15 +85,25 @@ describe('createSuggester', () => {
     expect(shown).toEqual([['', []]])
   })
 
-  it('asks again after a failed ask, and shows nothing for it', async () => {
+  it('shows no suggestions for a text whose ask failed, and asks again the next time it is typed', async () => {
     const { suggester, asks, shown } = setUp()
     suggester.type('mine')
     await vi.advanceTimersByTimeAsync(SUGGEST_DELAY_MS)
     asks[0]?.fail()
     await vi.advanceTimersByTimeAsync(0)
+    expect(shown).toEqual([['mine', []]])
     suggester.type('mine')
     await vi.advanceTimersByTimeAsync(SUGGEST_DELAY_MS)
     expect(asks).toHaveLength(2)
+  })
+
+  it('shows nothing for a failed ask whose text was typed over', async () => {
+    const { suggester, asks, shown } = setUp()
+    suggester.type('mine')
+    await vi.advanceTimersByTimeAsync(SUGGEST_DELAY_MS)
+    suggester.type('minec')
+    asks[0]?.fail()
+    await vi.advanceTimersByTimeAsync(0)
     expect(shown).toEqual([])
   })
 

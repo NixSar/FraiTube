@@ -335,6 +335,76 @@ describe('createFeedService', () => {
       await createFeedService(fetcher(requested), () => 10, undefined, cache, undefined, () => show).get([gamersNexus], false)
       expect(requested).toEqual([])
     })
+
+    it('fetches a new subscription without its Shorts feed while shorts do not show, and that channel again once they show', async () => {
+      let show = true
+      const requested: string[] = []
+      const cache = { saved: undefined as SavedFeed | undefined, load() { return this.saved }, save(feed: SavedFeed) { this.saved = feed } }
+      const service = createFeedService(fetcher(requested), () => 10, undefined, cache, undefined, () => show)
+      await service.get([gamersNexus], false)
+      expect(cache.saved?.shortsMissing).toBeUndefined()
+
+      show = false
+      requested.length = 0
+      await service.get([gamersNexus, hardwareUnboxed], false)
+      expect(requested).toContain(videosFeedUrl(HARDWARE_UNBOXED))
+      expect(requested.some((url) => url.includes('playlist_id=UUSH'))).toBe(false)
+      expect(cache.saved?.shortsMissing).toEqual([HARDWARE_UNBOXED])
+
+      show = true
+      requested.length = 0
+      await service.get([gamersNexus, hardwareUnboxed], false)
+      expect(requested).toContain(shortsFeedUrl(HARDWARE_UNBOXED))
+      expect(requested).not.toContain(videosFeedUrl(GAMERS_NEXUS))
+      expect(cache.saved?.shortsMissing).toBeUndefined()
+    })
+
+    it('fetches a channel again whose Shorts feed failed, also after a restart, and takes a missing Shorts feed as no shorts', async () => {
+      let shortsStatus = 500
+      const requested: string[] = []
+      const fetchText: FetchText = async (url) => {
+        requested.push(url)
+        if (url === shortsFeedUrl(GAMERS_NEXUS)) return shortsStatus === 200 ? { status: 200, text: shortsFeed } : { status: shortsStatus, text: '' }
+        if (url === videosFeedUrl(GAMERS_NEXUS) || url === videosFeedUrl(LEVEL1_TECHS)) return { status: 200, text: rssFeed }
+        return { status: 404, text: '' }
+      }
+      const cache = { saved: undefined as SavedFeed | undefined, load() { return this.saved }, save(feed: SavedFeed) { this.saved = feed } }
+      const service = createFeedService(fetchText, () => 10, undefined, cache, undefined, () => true)
+      const first = await service.get([gamersNexus, level1], false)
+      expect(first.failedChannels).toEqual([])
+      expect(first.videos.some((video) => video.short)).toBe(false)
+      // Level1Techs has no Shorts feed, which is not a failure.
+      expect(cache.saved?.shortsMissing).toEqual([GAMERS_NEXUS])
+
+      requested.length = 0
+      await createFeedService(fetchText, () => 10, undefined, cache, undefined, () => true).get([gamersNexus, level1], false)
+      expect(requested).toContain(shortsFeedUrl(GAMERS_NEXUS))
+      expect(requested).not.toContain(videosFeedUrl(LEVEL1_TECHS))
+      expect(cache.saved?.shortsMissing).toEqual([GAMERS_NEXUS])
+
+      shortsStatus = 200
+      const again = await service.get([gamersNexus, level1], false)
+      expect(again.videos.map((video) => video.id)).toContain('gnshortvid1')
+      expect(cache.saved?.shortsMissing).toBeUndefined()
+    })
+  })
+
+  it('runs a request that differs from the one running after it, never beside it', async () => {
+    let running = 0
+    let most = 0
+    let requests = 0
+    const service = createFeedService(async (url) => {
+      if (isLiveFeed(url)) return { status: 404, text: '' }
+      requests++
+      most = Math.max(most, ++running)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      running--
+      return { status: 200, text: rssFeed }
+    })
+    const [first, refreshed] = await Promise.all([service.get([gamersNexus], false), service.get([gamersNexus], true)])
+    expect(requests).toBe(2)
+    expect(most).toBe(1)
+    expect(refreshed.videos).toEqual(first.videos)
   })
 
   it('shares one load between requests made while it runs', async () => {
@@ -362,6 +432,13 @@ describe('readSavedFeed', () => {
     const saved: SavedFeed = { fetchedAt: 7, shorts: true, channels: [[GAMERS_NEXUS, [video, { ...video, id: 'gnshortvid1', short: true }]]] }
     expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
     expect(readSavedFeed(JSON.stringify({ fetchedAt: 7, channels: [[GAMERS_NEXUS, [{ ...video, short: 1 }]]] }))).toBeUndefined()
+  })
+
+  it('reads the channels whose Shorts feed is still to be fetched, only in a feed fetched with shorts', () => {
+    const saved: SavedFeed = { fetchedAt: 7, shorts: true, shortsMissing: [GAMERS_NEXUS], channels: [[GAMERS_NEXUS, [video]]] }
+    expect(readSavedFeed(JSON.stringify(saved))).toEqual(saved)
+    expect(readSavedFeed(JSON.stringify({ ...saved, shortsMissing: [GAMERS_NEXUS, 5] }))).toEqual(saved)
+    expect(readSavedFeed(JSON.stringify({ fetchedAt: 7, shortsMissing: [GAMERS_NEXUS], channels: [] }))).toEqual({ fetchedAt: 7, channels: [] })
   })
 
   it('ignores text that is not a saved feed', () => {
