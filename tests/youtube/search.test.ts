@@ -218,6 +218,13 @@ describe('parseRawResults', () => {
     })
   })
 
+  it('reads a topic row video that names no channel, with an empty channel', () => {
+    const card = { ...gridVideoRenderer.gridVideoRenderer, videoId: 'gridvideo02', shortBylineText: undefined }
+    const row = { shelfRenderer: { title: { simpleText: 'Topic' }, content: { horizontalListRenderer: { items: [{ gridVideoRenderer: card }] } } } }
+    const [video] = parseRawResults([row]).videos
+    expect(video).toMatchObject({ id: 'gridvideo02', title: 'A topic row video', channelId: '', channelName: '', channelAvatar: '' })
+  })
+
   it('reads a newer video card with its channel', () => {
     const [video] = parseRawResults([lockup('cardvideo01', 'LOCKUP_CONTENT_TYPE_VIDEO', CARD_ROWS)]).videos
     expect(video).toEqual({

@@ -25,6 +25,8 @@ export function createSuggester(
   limit = KEPT_SUGGESTIONS
 ): Suggester {
   const kept = new Map<string, string[]>()
+  /** The texts whose answers are on their way. */
+  const asking = new Set<string>()
   let timer: ReturnType<typeof setTimeout> | undefined
   let wanted = ''
 
@@ -60,10 +62,16 @@ export function createSuggester(
         show(typed, known)
         return
       }
+      // A text whose answer is on its way shows when the answer arrives.
+      if (asking.has(typed)) {
+        return
+      }
       timer = setTimeout(() => {
         timer = undefined
+        asking.add(typed)
         ask(typed).then(
           (suggestions) => {
+            asking.delete(typed)
             keep(typed, suggestions)
             if (wanted === typed) {
               show(typed, suggestions)
@@ -71,6 +79,7 @@ export function createSuggester(
           },
           // A failed ask shows no suggestions for its text and is asked again the next time the text is typed.
           () => {
+            asking.delete(typed)
             if (wanted === typed) {
               show(typed, [])
             }

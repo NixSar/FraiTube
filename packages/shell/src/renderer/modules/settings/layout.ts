@@ -56,8 +56,8 @@ function matches(text: string, query: string): boolean {
 
 /**
  * The sections and settings that match a search. A section whose title matches shows whole; otherwise
- * only settings whose label or choices match show, and a section with no match is left out.
- * A section's panel shows whenever its section shows.
+ * only settings whose label, choices or other search words match show, and a section with no match is
+ * left out. A section's panel shows whenever its section shows.
  */
 export function searchSettings(sections: readonly ShownSection[], search: string): ShownSection[] {
   const query = search.trim().toLowerCase()
@@ -70,6 +70,7 @@ export function searchSettings(sections: readonly ShownSection[], search: string
     }
     const settings = section.settings.filter((setting) =>
       matches(setting.label, query) ||
+      (setting.keywords?.some((word) => matches(word, query)) ?? false) ||
       (setting.type === 'choice' && setting.options.some((option) => matches(option.label, query))))
     return settings.length > 0 ? [{ ...section, settings }] : []
   })

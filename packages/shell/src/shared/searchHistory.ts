@@ -22,10 +22,11 @@ export const searchHistorySettings: SettingsSection = {
   title: 'Search',
   settings: [
     { key: SearchHistorySettingKey.suggest, label: 'Suggest searches while typing', type: 'boolean', default: true },
-    { key: SearchHistorySettingKey.remember, label: 'Remember searches', type: 'boolean', default: true },
+    { key: SearchHistorySettingKey.remember, label: 'Remember searches', keywords: ['search history'], type: 'boolean', default: true },
     {
       key: SearchHistorySettingKey.kept,
       label: 'Searches kept',
+      keywords: ['search history'],
       type: 'choice',
       options: SEARCHES_KEPT_CHOICES.map((count) => ({ value: String(count), label: String(count) })),
       default: String(DEFAULT_SEARCHES_KEPT)
@@ -33,7 +34,7 @@ export const searchHistorySettings: SettingsSection = {
   ]
 }
 
-/** Entries shown under the search box at most: past searches first, then suggestions. */
+/** Entries shown under the search box at most: the past searches with the typed text first, then suggestions. */
 export const SHOWN_SEARCH_ENTRIES = 10
 
 /** One entry under the search box: a past search, or a search YouTube suggests. */
@@ -52,8 +53,9 @@ export function pickedIndex(entries: readonly SearchEntry[], picked: string | un
 }
 
 /**
- * The entries under the search box: the shown past searches, then the suggestions that are not in the
- * history, at most `limit` entries.
+ * The entries under the search box: the shown past searches, then the suggestions, at most `limit`
+ * entries. A suggestion that is among the shown past searches is left out, and one that is another
+ * search of the history shows as that past search.
  */
 export function searchEntries(
   past: readonly PastSearch[],
@@ -62,13 +64,15 @@ export function searchEntries(
   limit = SHOWN_SEARCH_ENTRIES
 ): SearchEntry[] {
   const entries: SearchEntry[] = past.slice(0, limit).map((search) => ({ kind: 'past', query: search.query, past: search }))
-  const taken = new Set([...past, ...history].map((search) => searchKey(search.query)))
+  const shown = new Set(entries.map((entry) => searchKey(entry.query)))
+  const searched = new Map(history.map((search) => [searchKey(search.query), search]))
   for (const suggestion of suggestions) {
     if (entries.length >= limit) break
     const key = searchKey(suggestion)
-    if (!key || taken.has(key)) continue
-    taken.add(key)
-    entries.push({ kind: 'suggestion', query: suggestion })
+    if (!key || shown.has(key)) continue
+    shown.add(key)
+    const search = searched.get(key)
+    entries.push(search ? { kind: 'past', query: search.query, past: search } : { kind: 'suggestion', query: suggestion })
   }
   return entries
 }

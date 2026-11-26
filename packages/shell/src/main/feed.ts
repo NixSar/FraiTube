@@ -248,18 +248,21 @@ export function createFeedService(
   /**
    * Fetches the channels into the target, with their Shorts feeds when asked for, sending the channels
    * fetched so far along the way. In a feed with shorts, a channel whose videos came without its Shorts
-   * feed is noted as still missing it.
+   * feed is noted as still missing it. A channel that has videos in the target keeps them, and its note,
+   * when it fails to load.
    */
   async function fetchInto(target: NonNullable<typeof cached>, toFetch: readonly Channel[], withShorts: boolean): Promise<void> {
     const fetchedIds: string[] = []
     let reportedAt: number | undefined
     await mapWithLimit(toFetch, FEED_CONCURRENCY, async (channel) => {
       const { videos, shortsLoaded } = await loadChannel(channel, withShorts)
-      target.channels.set(channel.id, videos)
-      if (target.shorts && videos && !shortsLoaded) {
-        target.shortsMissing.add(channel.id)
-      } else {
-        target.shortsMissing.delete(channel.id)
+      if (videos || target.channels.get(channel.id) === undefined) {
+        target.channels.set(channel.id, videos)
+        if (target.shorts && videos && !shortsLoaded) {
+          target.shortsMissing.add(channel.id)
+        } else {
+          target.shortsMissing.delete(channel.id)
+        }
       }
       fetchedIds.push(channel.id)
       const time = now()

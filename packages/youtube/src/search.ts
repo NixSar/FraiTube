@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { Innertube, Parser, YTNodes, type Helpers, type Types, type YT } from 'youtubei.js'
-import type { ChannelResult, SearchFilter, SearchPage, SearchRequest, VideoResult } from './types'
+import { SEARCH_EXPIRED_MESSAGE, type ChannelResult, type SearchFilter, type SearchPage, type SearchRequest, type VideoResult } from './types'
 
 type YTNode = Helpers.YTNode
 type Thumbnail = { url: string; width: number }
@@ -61,12 +61,14 @@ export function toVideo(node: YTNodes.Video): VideoResult {
 
 function fromGridVideo(node: YTNodes.GridVideo): VideoResult {
   const isLive = node.thumbnail_overlays.some((overlay) => overlay.is(YTNodes.ThumbnailOverlayTimeStatus) && overlay.style === 'LIVE')
+  // A card that names no channel has no author.
+  const author: typeof node.author | undefined = node.author
   return {
     id: node.video_id,
     title: text(node.title),
-    channelId: node.author.id,
-    channelName: node.author.name,
-    channelAvatar: pickImage(node.author.thumbnails, 68),
+    channelId: author?.id ?? '',
+    channelName: author?.name ?? '',
+    channelAvatar: pickImage(author?.thumbnails, 68),
     durationText: isLive ? '' : text(node.duration),
     viewsText: text(node.views.isEmpty() ? node.short_view_count : node.views),
     publishedText: text(node.published),
@@ -276,7 +278,7 @@ export function createSearcher(getInnertube: () => Promise<Innertube>): Searcher
       const token = request.continuation
       const previous = pending.get(token)
       if (!previous) {
-        throw new Error('These search results have expired. Search again.')
+        throw new Error(SEARCH_EXPIRED_MESSAGE)
       }
       // A next page that failed to load is loaded once more.
       const page = await previous.next.catch(() => {

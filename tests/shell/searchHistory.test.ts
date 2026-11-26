@@ -164,11 +164,23 @@ describe('searchEntries', () => {
     ])
   })
 
-  it('leaves out suggestions found anywhere in the history, and repeated ones', () => {
-    const history = [...past, { query: 'minecraft song', searchedAt: 0 }]
-    expect(entries(searchEntries(past.slice(0, 1), ['minecraft song', 'minecraft', 'minecraft live', 'Minecraft Live'], history))).toEqual([
+  it('shows a suggestion that is a past search not among the shown ones as that past search, and a repeated one once', () => {
+    const song = { query: 'Minecraft Song', searchedAt: 0 }
+    const history = [...past, song]
+    const shown = searchEntries(past.slice(0, 1), ['minecraft song', 'minecraft mods', 'minecraft live', 'Minecraft Live'], history)
+    expect(entries(shown)).toEqual([
       'past:minecraft mods',
+      'past:Minecraft Song',
       'suggestion:minecraft live'
+    ])
+    expect(shown[1]).toEqual({ kind: 'past', query: 'Minecraft Song', past: song })
+  })
+
+  it('shows a past search without the typed text when YouTube suggests it', () => {
+    const history = [{ query: 'minecraft', searchedAt: 1 }]
+    expect(entries(searchEntries(matchingSearches(history, 'minecrfat'), ['minecraft', 'minecraft song'], history))).toEqual([
+      'past:minecraft',
+      'suggestion:minecraft song'
     ])
   })
 

@@ -13,7 +13,7 @@ import { usePaging } from '../../components/paging'
 import { useWatchProgress } from '../history/progress'
 import SubscribeButton from '../subscriptions/SubscribeButton.vue'
 import { useSubscriptions } from '../subscriptions/store'
-import { searchMemory, searchRuns } from './searchMemory'
+import { addPage, isExpiredSearch, searchMemory, searchRuns, type KeptSearch } from './searchMemory'
 
 const FILTERS: { value: SearchFilter; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -72,19 +72,33 @@ async function load(more: boolean): Promise<void> {
   loading.value = true
   error.value = ''
 
+  const token = more ? continuation.value : undefined
   try {
-    const page = await window.fraitube.search({ query, filter, continuation: more ? continuation.value : undefined })
-    if (id !== searchId) {
+    const page = await window.fraitube.search({ query, filter, continuation: token })
+    // A next page still belongs here when its search shows again with the token the page was asked with.
+    if (id !== searchId && (token === undefined || continuation.value !== token)) {
+      // The next page of a search that no longer shows joins what is kept for it.
+      if (token !== undefined) {
+        searchMemory.addLatePage(query, filter, token, page, withShorts)
+      }
       return
     }
-    const seenVideos = new Set([...videos.value, ...shorts.value].map((video) => video.id))
-    const seenChannels = new Set(channels.value.map((channel) => channel.id))
-    videos.value.push(...page.videos.filter((video) => !seenVideos.has(video.id)))
-    shorts.value.push(...page.shorts.filter((video) => !seenVideos.has(video.id)))
-    channels.value.push(...page.channels.filter((channel) => !seenChannels.has(channel.id)))
-    continuation.value = page.continuation
-    searchMemory.keep(query, filter, { videos: videos.value, channels: channels.value, shorts: shorts.value, continuation: continuation.value }, withShorts)
+    const search: KeptSearch = { videos: videos.value, channels: channels.value, shorts: shorts.value }
+    addPage(search, page)
+    continuation.value = search.continuation
+    searchMemory.keep(query, filter, search, withShorts)
   } catch (cause) {
+    if (token !== undefined && isExpiredSearch(cause)) {
+      // The next page is gone, so the search runs again from its first page, unless what is kept for it
+      // has moved on to a later page.
+      if (searchMemory.get(query, filter, withShorts)?.continuation === token) {
+        searchMemory.drop(query, filter, withShorts)
+      }
+      if (id === searchId || continuation.value === token) {
+        void load(false)
+      }
+      return
+    }
     if (id === searchId) {
       error.value = cause instanceof Error ? cause.message : String(cause)
     }

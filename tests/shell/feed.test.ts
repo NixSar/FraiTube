@@ -387,6 +387,27 @@ describe('createFeedService', () => {
       expect(again.videos.map((video) => video.id)).toContain('gnshortvid1')
       expect(cache.saved?.shortsMissing).toBeUndefined()
     })
+
+    it('keeps a channel\'s videos when fetching it again for its Shorts feed fails', async () => {
+      let videosStatus = 200
+      const fetchText: FetchText = async (url) => {
+        if (url === videosFeedUrl(GAMERS_NEXUS)) return videosStatus === 200 ? { status: 200, text: rssFeed } : { status: videosStatus, text: '' }
+        if (url === shortsFeedUrl(GAMERS_NEXUS)) return { status: 500, text: '' }
+        return { status: 404, text: '' }
+      }
+      const cache = { saved: undefined as SavedFeed | undefined, load() { return this.saved }, save(feed: SavedFeed) { this.saved = feed } }
+      const service = createFeedService(fetchText, () => 10, undefined, cache, undefined, () => true)
+      await service.get([gamersNexus], false)
+
+      videosStatus = 500
+      const again = await service.get([gamersNexus], false)
+      expect(again.videos.map((video) => video.id)).toEqual(['l8qxFcaLSM4', 'KNVKzPHgg4M'])
+      expect(again.failedChannels).toEqual([])
+      // The channel is still fetched again for its Shorts feed.
+      expect(cache.saved?.shortsMissing).toEqual([GAMERS_NEXUS])
+      expect(cache.saved?.channels).toHaveLength(1)
+      expect(cache.saved?.channels[0]?.[1]).toHaveLength(2)
+    })
   })
 
   it('runs a request that differs from the one running after it, never beside it', async () => {

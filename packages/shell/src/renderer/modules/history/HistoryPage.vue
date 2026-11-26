@@ -9,7 +9,7 @@ import VideoCard from '../../components/VideoCard.vue'
 import VideoGrid from '../../components/VideoGrid.vue'
 import { playInNewWindowItem } from '../../components/videoMenu'
 import ConfirmClearDialog from '../../components/ConfirmClearDialog.vue'
-import { historyClearWarning } from './clearHistory'
+import { historyClearWarning, historyEmptyText } from './clearHistory'
 import { useFavoriteMenuItem } from '../favorites/store'
 import { useWatchedMenuItem } from './progress'
 
@@ -144,7 +144,7 @@ void reload()
       v-if="loaded && shownEntries.length === 0"
       class="meta"
     >
-      No videos watched yet.
+      {{ historyEmptyText(entries.length, shownEntries.length) }}
     </p>
 
     <VideoGrid

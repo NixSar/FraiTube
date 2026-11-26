@@ -1649,9 +1649,18 @@ video {
   position: absolute;
   inset: 0;
   width: 100%;
+  height: 100%;
   margin: 0;
   opacity: 0;
   cursor: pointer;
+  appearance: none;
+}
+
+/* The slider's handle is a hairline, so a click seeks anywhere on the seek bar, also next to the playing time. */
+.seek input::-webkit-slider-thumb {
+  width: 1px;
+  height: 100%;
+  appearance: none;
 }
 
 /* Always one row: parts that would not fit are left out as the player narrows. */

@@ -171,6 +171,9 @@ export type MintPoToken = (request: PoTokenRequest) => Promise<string>
 
 export type SearchFilter = 'all' | 'videos' | 'live' | 'channels' | 'shorts'
 
+/** The error of a search asked for a next page that is no longer kept. */
+export const SEARCH_EXPIRED_MESSAGE = 'These search results have expired. Search again.'
+
 export interface SearchRequest {
   query: string
   filter: SearchFilter

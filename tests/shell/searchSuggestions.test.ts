@@ -76,6 +76,19 @@ describe('createSuggester', () => {
     expect(shown).toEqual([['mine', ['minecraft']]])
   })
 
+  it('asks once for a text typed again while its answer is on its way, and shows the answer when it arrives', async () => {
+    const { suggester, asks, shown } = setUp()
+    suggester.type('mine')
+    await vi.advanceTimersByTimeAsync(SUGGEST_DELAY_MS)
+    suggester.type('minec')
+    suggester.type('mine')
+    await vi.advanceTimersByTimeAsync(SUGGEST_DELAY_MS)
+    expect(asks.map((ask) => ask.text)).toEqual(['mine'])
+    asks[0]?.answer(['minecraft'])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(shown).toEqual([['mine', ['minecraft']]])
+  })
+
   it('shows none for empty text, without asking', async () => {
     const { suggester, asks, shown } = setUp()
     suggester.type('mine')

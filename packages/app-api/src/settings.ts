@@ -20,6 +20,8 @@ interface BaseSetting {
   hidden?: boolean
   /** The Settings page section it shows under, when not the one its module's settings are titled. */
   group?: string
+  /** Other words the Settings page search finds it by, besides its label, choices and section. */
+  keywords?: string[]
 }
 
 export interface ChoiceSetting extends BaseSetting {

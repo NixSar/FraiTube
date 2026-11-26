@@ -72,8 +72,8 @@ export const shellSettings: SettingsSection = {
   title: 'General',
   settings: [
     { key: SettingKey.startPage, label: 'Open the app at', type: 'choice', options: START_PAGES, default: 'subscriptions' },
-    { key: SettingKey.theme, label: 'Theme', type: 'choice', options: THEMES, default: 'system' },
-    { key: SettingKey.accent, label: 'Accent color', type: 'color', default: '#3d7bd9' },
+    { key: SettingKey.theme, label: 'Theme', keywords: ['appearance'], type: 'choice', options: THEMES, default: 'system' },
+    { key: SettingKey.accent, label: 'Accent color', keywords: ['appearance'], type: 'color', default: '#3d7bd9' },
     { key: SettingKey.checkUpdates, label: 'Check for updates when FraiTube starts', type: 'boolean', default: true },
     { key: SettingKey.showShorts, label: 'Show Shorts', group: 'Content', type: 'boolean', default: false },
     { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'Content', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },

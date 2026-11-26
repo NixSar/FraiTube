@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { confirmsClear } from '../../packages/shell/src/renderer/components/confirmClear'
-import { historyClearWarning } from '../../packages/shell/src/renderer/modules/history/clearHistory'
+import { historyClearWarning, historyEmptyText } from '../../packages/shell/src/renderer/modules/history/clearHistory'
 import { subscriptionsClearWarning } from '../../packages/shell/src/renderer/modules/subscriptions/clearSubscriptions'
 
 describe('confirmsClear', () => {
@@ -11,6 +11,14 @@ describe('confirmsClear', () => {
     expect(confirmsClear('clear')).toBe(false)
     expect(confirmsClear('CLEA')).toBe(false)
     expect(confirmsClear('CLEAR!')).toBe(false)
+  })
+})
+
+describe('historyEmptyText', () => {
+  it('says that nothing was watched, or that only hidden shorts are in the history', () => {
+    expect(historyEmptyText(0, 0)).toBe('No videos watched yet.')
+    expect(historyEmptyText(2, 0)).toBe('The history holds only Shorts. They show when Show Shorts is on in Settings.')
+    expect(historyEmptyText(5, 3)).toBe('')
   })
 })
 

@@ -55,6 +55,16 @@ describe('searchSettings', () => {
     expect(searchSettings(shown, 'solarized').map((section) => section.title)).toEqual(['General'])
   })
 
+  it('finds settings by their other search words, with the panel of their section', () => {
+    const appearance = searchSettings(shown, 'Appearance')
+    expect(appearance.map((section) => section.title)).toEqual(['General'])
+    expect(appearance[0]?.settings.map((setting) => setting.label)).toEqual(['Theme', 'Accent color'])
+    const searchHistory = searchSettings(shown, 'search history')
+    expect(searchHistory.map((section) => section.title)).toEqual(['Search'])
+    expect(searchHistory[0]?.settings.map((setting) => setting.label)).toEqual(['Remember searches', 'Searches kept'])
+    expect(searchHistory[0]?.hasPanel).toBe(true)
+  })
+
   it('shows everything for an empty search and nothing for no match', () => {
     expect(searchSettings(shown, '  ')).toEqual(shown)
     expect(searchSettings(shown, 'no such setting')).toEqual([])
