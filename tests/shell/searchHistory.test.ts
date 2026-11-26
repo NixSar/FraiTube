@@ -218,7 +218,7 @@ describe('searchesKept', () => {
 
 describe('searchHistorySettings', () => {
   it('remembers searches and keeps 50 by default, with 25 to 200 to choose from', () => {
-    expect(searchHistorySettings.title).toBe('Search history')
+    expect(searchHistorySettings.title).toBe('Search')
     const remember = searchHistorySettings.settings.find((setting) => setting.key === SearchHistorySettingKey.remember)
     expect(remember).toMatchObject({ type: 'boolean', default: true })
     const kept = searchHistorySettings.settings.find((setting) => setting.key === SearchHistorySettingKey.kept)

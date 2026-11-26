@@ -15,12 +15,13 @@ export const DEFAULT_SEARCHES_KEPT = 50
 export const SHOWN_PAST_SEARCHES = 8
 
 /**
- * Settings owned by the search history module. Searches are remembered, and YouTube suggests searches
- * while typing, unless turned off here.
+ * Settings owned by the search history module, in the Search section. Searches are remembered, and
+ * YouTube suggests searches while typing, unless turned off here.
  */
 export const searchHistorySettings: SettingsSection = {
-  title: 'Search history',
+  title: 'Search',
   settings: [
+    { key: SearchHistorySettingKey.suggest, label: 'Suggest searches while typing', type: 'boolean', default: true },
     { key: SearchHistorySettingKey.remember, label: 'Remember searches', type: 'boolean', default: true },
     {
       key: SearchHistorySettingKey.kept,
@@ -28,8 +29,7 @@ export const searchHistorySettings: SettingsSection = {
       type: 'choice',
       options: SEARCHES_KEPT_CHOICES.map((count) => ({ value: String(count), label: String(count) })),
       default: String(DEFAULT_SEARCHES_KEPT)
-    },
-    { key: SearchHistorySettingKey.suggest, label: 'Suggest searches while typing', type: 'boolean', default: true }
+    }
   ]
 }
 

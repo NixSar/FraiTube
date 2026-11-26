@@ -1,6 +1,5 @@
 import type { SettingDefinition, SettingsSection } from '@fraitube/app-api/settings'
 import { backupSettings } from './backupSettings'
-import { historySettings } from './history'
 import { playerSettings } from './playerSettings'
 import { searchHistorySettings } from './searchHistory'
 import { sponsorBlockSettings } from './sponsorBlockSettings'
@@ -70,20 +69,19 @@ export function feedMaxAgeMs(value: unknown): number | undefined {
 
 /** Settings owned by the shell itself. */
 export const shellSettings: SettingsSection = {
-  title: 'Appearance',
+  title: 'General',
   settings: [
+    { key: SettingKey.startPage, label: 'Open the app at', type: 'choice', options: START_PAGES, default: 'subscriptions' },
     { key: SettingKey.theme, label: 'Theme', type: 'choice', options: THEMES, default: 'system' },
     { key: SettingKey.accent, label: 'Accent color', type: 'color', default: '#3d7bd9' },
-    { key: SettingKey.startPage, label: 'Open the app at', group: 'General', type: 'choice', options: START_PAGES, default: 'subscriptions' },
-    { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'General', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },
-    { key: SettingKey.checkUpdates, label: 'Check for updates when FraiTube starts', group: 'General', type: 'boolean', default: true },
-    { key: SettingKey.showShorts, label: 'Show Shorts', group: 'General', type: 'boolean', default: false },
+    { key: SettingKey.checkUpdates, label: 'Check for updates when FraiTube starts', type: 'boolean', default: true },
+    { key: SettingKey.showShorts, label: 'Show Shorts', group: 'Content', type: 'boolean', default: false },
+    { key: SettingKey.feedRefresh, label: 'Refresh New videos', group: 'Content', type: 'choice', options: FEED_REFRESH_CHOICES, default: '1' },
     // The version whose update banner was dismissed; the banner shows again for a newer one.
-    { key: SettingKey.dismissedUpdate, label: 'Dismissed update', group: 'General', type: 'text', maxLength: 40, default: '', local: true, hidden: true },
+    { key: SettingKey.dismissedUpdate, label: 'Dismissed update', type: 'text', maxLength: 40, default: '', local: true, hidden: true },
     {
       key: SettingKey.windowBounds,
       label: 'Window size and position',
-      group: 'General',
       type: 'bounds',
       default: { width: 1200, height: 800, maximized: false },
       local: true,
@@ -93,7 +91,7 @@ export const shellSettings: SettingsSection = {
 }
 
 /** The settings sections of every installed module. The main process checks and stores values against these. */
-export const installedSettings: SettingsSection[] = [shellSettings, playerSettings, historySettings, searchHistorySettings, sponsorBlockSettings, syncSettings, backupSettings]
+export const installedSettings: SettingsSection[] = [shellSettings, playerSettings, searchHistorySettings, sponsorBlockSettings, syncSettings, backupSettings]
 
 export function allSettingDefinitions(): SettingDefinition[] {
   return installedSettings.flatMap((section) => section.settings)

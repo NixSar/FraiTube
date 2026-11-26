@@ -25,14 +25,14 @@ export const sponsorBlockSettings: SettingsSection = {
   title: 'SponsorBlock',
   settings: [
     { key: SponsorBlockSettingKey.enabled, label: 'Use SponsorBlock', type: 'boolean', default: false },
-    { key: SponsorBlockSettingKey.server, label: 'Server address', type: 'text', maxLength: 200, default: DEFAULT_SERVER },
     ...SKIPPABLE_CATEGORIES.map((category): SettingDefinition => ({
       key: categorySettingKey(category.id),
       label: category.label,
       type: 'choice',
       options: MODE_OPTIONS,
       default: category.defaultMode
-    }))
+    })),
+    { key: SponsorBlockSettingKey.server, label: 'Server address', type: 'text', maxLength: 200, default: DEFAULT_SERVER }
   ]
 }
 

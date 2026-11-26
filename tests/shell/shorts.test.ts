@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { allSettingDefinitions, SettingKey, shortsShown, withoutHiddenShorts } from '../../packages/shell/src/shared/settings'
 
 describe('Show Shorts setting', () => {
-  it('is in General, off by default, and synced like the other settings', () => {
+  it('is in Content, off by default, and synced like the other settings', () => {
     const setting = allSettingDefinitions().find((definition) => definition.key === SettingKey.showShorts)
-    expect(setting).toMatchObject({ label: 'Show Shorts', group: 'General', type: 'boolean', default: false })
+    expect(setting).toMatchObject({ label: 'Show Shorts', group: 'Content', type: 'boolean', default: false })
     expect(setting && 'local' in setting ? setting.local : undefined).toBeUndefined()
   })
 

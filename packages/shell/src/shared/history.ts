@@ -1,24 +1,10 @@
-import type { SettingsSection } from '@fraitube/app-api/settings'
 import { isChannelId, normalizeAvatar } from '@fraitube/subscriptions'
 import { isVideoId } from '@fraitube/youtube/ids'
 
+/** The history's setting, shown with the player's Playback settings. Resuming is on unless turned off there. */
 export const HistorySettingKey = {
   resume: 'history.resume'
 } as const
-
-/** Settings owned by the history module. Resuming is on unless turned off here. */
-export const historySettings: SettingsSection = {
-  title: 'History',
-  settings: [
-    {
-      key: HistorySettingKey.resume,
-      label: 'Resume videos where they stopped',
-      group: 'Playback',
-      type: 'boolean',
-      default: true
-    }
-  ]
-}
 
 /** What the watch page tells the main process about a video when it starts. */
 export interface HistoryVideo {

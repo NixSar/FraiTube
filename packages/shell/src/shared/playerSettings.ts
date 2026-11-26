@@ -1,4 +1,5 @@
 import type { SettingsSection } from '@fraitube/app-api/settings'
+import { HistorySettingKey } from './history'
 
 export const PlayerSettingKey = {
   defaultQuality: 'player.defaultQuality',
@@ -31,7 +32,7 @@ export const DEFAULT_QUALITY_HEIGHT = 1080
 /** The quality a video starts at: the highest it has, one of YouTube's qualities, or auto, which fits the player. */
 export type DefaultQuality = 'max' | 'auto' | number
 
-/** Settings owned by the watch page's player. */
+/** Settings owned by the watch page's player, with the history's resume setting among them. */
 export const playerSettings: SettingsSection = {
   title: 'Player',
   settings: [
@@ -59,6 +60,13 @@ export const playerSettings: SettingsSection = {
       hidden: true
     },
     {
+      key: HistorySettingKey.resume,
+      label: 'Resume videos where they stopped',
+      group: 'Playback',
+      type: 'boolean',
+      default: true
+    },
+    {
       key: PlayerSettingKey.pipOnLeave,
       label: 'Move the video to PiP when leaving its page',
       group: 'Playback',
@@ -79,15 +87,6 @@ export const playerSettings: SettingsSection = {
       type: 'text',
       maxLength: 20,
       default: 'en'
-    },
-    {
-      key: PlayerSettingKey.subtitlePosition,
-      label: 'Subtitle position, in percent of the picture height above its bottom',
-      group: 'Subtitles',
-      type: 'number',
-      min: 0,
-      max: 90,
-      default: SUBTITLE_DEFAULTS.position
     },
     {
       key: PlayerSettingKey.subtitleFont,
@@ -132,6 +131,15 @@ export const playerSettings: SettingsSection = {
       min: 0,
       max: 100,
       default: SUBTITLE_DEFAULTS.backgroundOpacity
+    },
+    {
+      key: PlayerSettingKey.subtitlePosition,
+      label: 'Subtitle position, in percent of the picture height above its bottom',
+      group: 'Subtitles',
+      type: 'number',
+      min: 0,
+      max: 90,
+      default: SUBTITLE_DEFAULTS.position
     }
   ]
 }

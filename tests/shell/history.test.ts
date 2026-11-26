@@ -3,7 +3,6 @@ import {
   continueWatching,
   entryWithPosition,
   formatClock,
-  historySettings,
   timeLeftText,
   videoThumbnail,
   HistorySettingKey,
@@ -18,6 +17,7 @@ import {
   watchProgress,
   withSavedPosition
 } from '../../packages/shell/src/shared/history'
+import { playerSettings } from '../../packages/shell/src/shared/playerSettings'
 
 const video = {
   videoId: 'l8qxFcaLSM4',
@@ -105,11 +105,9 @@ describe('continue watching', () => {
 })
 
 describe('resume setting', () => {
-  it('is on by default, in its own History section', () => {
-    expect(historySettings.title).toBe('History')
-    expect(historySettings.settings).toEqual([
-      expect.objectContaining({ key: HistorySettingKey.resume, type: 'boolean', default: true })
-    ])
+  it('is on by default, among the Playback settings', () => {
+    const resume = playerSettings.settings.find((setting) => setting.key === HistorySettingKey.resume)
+    expect(resume).toMatchObject({ key: 'history.resume', group: 'Playback', type: 'boolean', default: true })
   })
 })
 
