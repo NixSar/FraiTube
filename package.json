@@ -1,6 +1,6 @@
 {
   "name": "fraitube",
-  "version": "0.9.9",
+  "version": "0.9.10",
   "description": "A desktop YouTube app for Windows and Linux that needs no Google account.",
   "private": true,
   "type": "module",

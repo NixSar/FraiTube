@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.10 - 2026-11-27
+
+- Search shows videos and channels together, and suggests searches as you type.
+- Going back to a search brings its results back right away.
+- Shorts can be shown. Turn on Show Shorts in Settings.
+- Settings are in a new order, the most important ones first.
+- Clicking the timeline right next to the current position jumps there.
+
 ## 0.9.9 - 2026-11-25
 
 - ARM64 versions for Windows and Linux: FraiTube-0.9.9-setup-arm64.exe for Windows on ARM and FraiTube-0.9.9-aarch64.AppImage for ARM64 Linux. The update check downloads the file for the computer's processor.
