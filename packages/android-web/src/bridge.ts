@@ -34,6 +34,8 @@ import { categoryModes, SponsorBlockSettingKey } from '../../shell/src/shared/sp
 import type { SyncStatus } from '../../shell/src/shared/syncSettings'
 import type { DownloadState, UpdateState } from '../../shell/src/shared/updates'
 import type { BackupStatus } from '../../shell/src/shared/backupSettings'
+import { PlayerSettingKey } from '../../shell/src/shared/playerSettings'
+import { noteVideoTitle } from './android'
 import { createBackupService } from './backup'
 import { awaitNative, runHidden } from './hiddenCalls'
 import { createNativeFetch } from './native'
@@ -187,13 +189,26 @@ export function createBridge(): FraiTubeBridge {
         body: new Uint8Array(await response.arrayBuffer())
       }
     },
-    getPlayback: async (videoId, fresh) => isVideoId(videoId) ? playbacks.get(videoId, fresh === true) : refuse(),
-    getVideoDetails: async (videoId) => isVideoId(videoId) ? playbacks.details(videoId) : refuse(),
+    async getPlayback(videoId, fresh) {
+      const playback = await (isVideoId(videoId) ? playbacks.get(videoId, fresh === true) : refuse())
+      noteVideoTitle(playback.title)
+      return playback
+    },
+    async getVideoDetails(videoId) {
+      const found = await (isVideoId(videoId) ? playbacks.details(videoId) : refuse())
+      noteVideoTitle(found.title)
+      return found
+    },
     refreshPoToken: async (videoId) => isVideoId(videoId) ? youtube.refreshPoToken(videoId) : refuse(),
-    getSettings: async () => settings.getAll(),
+    // Moving a video to a second window on leaving its page does not exist on a phone, so that
+    // setting always reads as off here, whatever the synced value is.
+    getSettings: async () => ({ ...settings.getAll(), [PlayerSettingKey.pipOnLeave]: false }),
     async setSetting(key, value) {
       if (typeof key !== 'string') {
         refuse()
+      }
+      if (key === PlayerSettingKey.pipOnLeave) {
+        return
       }
       settingChanged.announce(key, settings.set(key, value))
     },
@@ -380,7 +395,7 @@ export function createBridge(): FraiTubeBridge {
       return parseSegments(await response.json(), videoId)
     },
     onPauseRequested: never,
-    openPip: () => undefined,
+    openPip: () => native.enterPictureInPicture(),
     closePip: () => undefined,
     pipBack: () => undefined,
     movePip: () => undefined,

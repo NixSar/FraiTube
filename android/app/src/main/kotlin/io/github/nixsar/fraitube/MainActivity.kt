@@ -4,7 +4,12 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
@@ -26,7 +31,7 @@ import org.json.JSONObject
  * YouTube through [NativeRequests], and YouTube's own scripts run in the [HiddenPage].
  */
 class MainActivity : Activity() {
-    private lateinit var webView: WebView
+    private lateinit var webView: BackgroundWebView
     private lateinit var hidden: HiddenPage
     private lateinit var requests: NativeRequests
     private lateinit var userAgent: String
@@ -35,6 +40,10 @@ class MainActivity : Activity() {
     private lateinit var feedFile: FeedFile
     private lateinit var files: OneTimeFiles
     private lateinit var fileChooser: FileChooser
+    private lateinit var playerWindow: PlayerWindow
+
+    @Volatile
+    private var pendingLink: String? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,8 +51,13 @@ class MainActivity : Activity() {
         // No web view of the app keeps cookies, so nothing ties one request to the next.
         CookieManager.getInstance().setAcceptCookie(false)
 
+        // Only the test build lets a computer look inside its pages.
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
+
         userAgent = desktopUserAgent(this)
-        requests = NativeRequests(userAgent, ::isYoutubeAddress)
+        requests =NativeRequests(userAgent, ::isYoutubeAddress)
         hidden = HiddenPage(this, userAgent)
         database = AppDatabase(this)
         // SponsorBlock's server is only ever asked to list segments.
@@ -52,10 +66,14 @@ class MainActivity : Activity() {
         files = OneTimeFiles(cacheDir)
         fileChooser = FileChooser(this, files, ::deliver)
 
-        webView = WebView(this)
+        pendingLink = linkOf(intent)
+
+        webView = BackgroundWebView(this)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
+        // The page keeps its size: it lays itself out for the screen, also after picture-in-picture.
+        webView.settings.setSupportZoom(false)
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
         webView.addJavascriptInterface(Bridge(), "FraiTubeNative")
@@ -93,9 +111,15 @@ class MainActivity : Activity() {
         val container = FrameLayout(this)
         container.setBackgroundColor(Color.BLACK)
         container.addView(webView, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        playerWindow = PlayerWindow(this, container, webView)
+        webView.webChromeClient = playerWindow.chromeClient
         container.setOnApplyWindowInsetsListener { view, insets ->
-            val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            if (playerWindow.coversScreen) {
+                view.setPadding(0, 0, 0, 0)
+            } else {
+                val bars = insets.getInsets(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout() or WindowInsets.Type.ime())
+                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            }
             insets
         }
         setContentView(container)
@@ -103,13 +127,20 @@ class MainActivity : Activity() {
         // From Android 13 on, Back reaches the app through this handler; newer versions no longer call onBackPressed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_DEFAULT) {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
+                if (!goBack()) {
                     // On the first page Back leaves the app, which stays open behind the home screen.
                     moveTaskToBack(true)
                 }
             }
+        }
+
+        // The playback notification's button asks through this for play or pause.
+        val filter = IntentFilter(PlaybackService.ACTION_SET_PLAYING)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(playbackReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(playbackReceiver, filter)
         }
 
         if (savedInstanceState == null) {
@@ -124,13 +155,53 @@ class MainActivity : Activity() {
         webView.saveState(outState)
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
+    /** Back leaves fullscreen first, then goes back a page. False on the first page. */
+    private fun goBack(): Boolean {
+        if (playerWindow.leaveFullscreen()) {
+            return true
+        }
         if (webView.canGoBack()) {
             webView.goBack()
-        } else {
+            return true
+        }
+        return false
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (!goBack()) {
             @Suppress("DEPRECATION")
             super.onBackPressed()
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        playerWindow.onUserLeaveHint()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        playerWindow.onPictureInPictureChanged(isInPictureInPictureMode)
+    }
+
+    /** A YouTube link opened or shared while the app runs goes straight to the page. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        val link = linkOf(intent) ?: return
+        webView.evaluateJavascript("window.fraitubeAndroid && window.fraitubeAndroid.openLink(${JSONObject.quote(link)})", null)
+    }
+
+    /** The link an intent carries: the address it opens, or the text shared with it. */
+    private fun linkOf(intent: Intent?): String? = when (intent?.action) {
+        Intent.ACTION_VIEW -> intent.dataString
+        Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
+        else -> null
+    }
+
+    private val playbackReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            playerWindow.setPlaying(intent.getBooleanExtra(PlaybackService.EXTRA_PLAYING, false))
         }
     }
 
@@ -151,6 +222,8 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        unregisterReceiver(playbackReceiver)
+        playerWindow.release()
         hidden.destroy()
         webView.destroy()
         database.close()
@@ -160,6 +233,26 @@ class MainActivity : Activity() {
     private inner class Bridge {
         @JavascriptInterface
         fun request(details: String, bodyBase64: String): String = requests.register(details, bodyBase64)
+
+        /** The page's report about its video: whether there is one, whether it plays, its picture's shape and its title. */
+        @JavascriptInterface
+        fun playerState(hasVideo: Boolean, playing: Boolean, width: Int, height: Int, title: String) {
+            runOnUiThread { playerWindow.onPlayerState(hasVideo, playing, width, height, title) }
+        }
+
+        /** Shrinks the app into a small floating video. */
+        @JavascriptInterface
+        fun enterPictureInPicture() {
+            runOnUiThread { playerWindow.enterPictureInPicture() }
+        }
+
+        /** The YouTube link the app was opened with, handed out once, or an empty text. */
+        @JavascriptInterface
+        fun takeLink(): String {
+            val link = pendingLink.orEmpty()
+            pendingLink = null
+            return link
+        }
 
         @JavascriptInterface
         fun db(sql: String, params: String, wantRows: Boolean): String = database.run(sql, params, wantRows)

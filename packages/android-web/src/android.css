@@ -1,0 +1,96 @@
+/*
+ * Looks that only the Android app needs, on top of the screens' own styles. Every rule starts at
+ * the class the Android page puts on the page's root, so nothing here reaches the desktop.
+ */
+
+/* A phone has one window. */
+html.fraitube-android .new-window {
+  display: none !important;
+}
+
+/* The list under the search box is as wide as the screen, not as the narrow box. */
+html.fraitube-android .past-searches {
+  position: fixed;
+  inset-inline: 8px;
+  inset-block-start: 60px;
+}
+
+/* Things a finger taps are at least 48 pixels high and wide. */
+html.fraitube-android .player .icon-button {
+  min-inline-size: 48px;
+  min-block-size: 48px;
+}
+
+html.fraitube-android .player .bar {
+  gap: 2px;
+}
+
+html.fraitube-android .player .seek {
+  height: 28px;
+}
+
+html.fraitube-android .menu [role='menuitem'],
+html.fraitube-android .past-search,
+html.fraitube-android .player .subtitles-menu > * {
+  min-block-size: 48px;
+}
+
+html.fraitube-android .more {
+  inline-size: 48px;
+  block-size: 48px;
+}
+
+html.fraitube-android .history-button {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+}
+
+/* On a narrow screen the search box takes the room of the app's name. */
+@media (width < 600px) {
+  html.fraitube-android .app-name {
+    display: none;
+  }
+
+  html.fraitube-android .top-bar .search {
+    margin-inline: 8px;
+  }
+}
+
+/* On a narrow screen the player is low, so the timeline's preview picture is smaller and stays inside it. */
+@media (width < 400px) {
+  html.fraitube-android .player .preview-picture {
+    zoom: 0.75;
+  }
+}
+
+@media (width < 350px) {
+  html.fraitube-android .player .preview-picture {
+    zoom: 0.55;
+  }
+}
+
+/* Shrunk into picture-in-picture, the app shows the video and nothing else. */
+html.fraitube-pip body {
+  overflow: hidden;
+}
+
+html.fraitube-pip .top-bar,
+html.fraitube-pip .side-nav,
+html.fraitube-pip .banner {
+  display: none !important;
+}
+
+html.fraitube-pip .player {
+  position: fixed !important;
+  inset: 0;
+  z-index: 2000;
+  inline-size: 100vw;
+  block-size: 100vh;
+  aspect-ratio: auto;
+}
+
+html.fraitube-pip .player .controls,
+html.fraitube-pip .player .notices,
+html.fraitube-pip .player .skip-notice {
+  display: none !important;
+}

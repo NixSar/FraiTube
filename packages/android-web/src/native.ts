@@ -14,6 +14,12 @@ export interface AppNative extends NativeRequests {
   readFeed(): string
   /** Saves the fetched feed, replacing the one saved before. */
   writeFeed(text: string): void
+  /** Reports the page's video: whether there is one, whether it plays, its picture's width and height, and its title. */
+  playerState(hasVideo: boolean, playing: boolean, width: number, height: number, title: string): void
+  /** Shrinks the app into a small floating video. */
+  enterPictureInPicture(): void
+  /** The YouTube link the app was opened with, handed out once, or an empty text. */
+  takeLink(): string
   /** The browser name every YouTube request carries. */
   userAgent(): string
   /** The app's version. */
