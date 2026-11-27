@@ -84,6 +84,8 @@ const SKIP_NOTICE_MS = 6000
 const SUBTITLE_ERROR_MS = 6000
 /** Width of the preview picture shown over the seek bar, in pixels. */
 const PREVIEW_WIDTH = 176
+/** A click this soon after a finger lifted, in milliseconds, is that finger's tap. */
+const TOUCH_CLICK_MS = 700
 
 const box = useTemplateRef<HTMLDivElement>('box')
 const videoElement = useTemplateRef<HTMLVideoElement>('video')
@@ -115,6 +117,10 @@ const volume = ref(savedVolume())
 const muted = ref(false)
 const fullscreen = ref(false)
 const controlsShown = ref(true)
+/** True while a finger that showed the hidden controls is still down. */
+let touchShowedControls = false
+/** When a finger that showed the hidden controls lifted, in page time. */
+let controlsShownByTouchAt = -Infinity
 /** True while the pointer is over the player. */
 const pointerInside = ref(false)
 /** True while keyboard focus is inside the controls. */
@@ -808,6 +814,12 @@ function canMoveToPip(): boolean {
 defineExpose({ seekTo, currentTime, pause, isPlaying, playheadSeconds, takeOver, subtitleTrackId, hasEnded, canMoveToPip })
 
 function onSeekInput(event: Event): void {
+  // A finger drags without ever hovering, so the bar is measured and the controls kept shown here too.
+  const width = seekBar.value?.getBoundingClientRect().width ?? 0
+  if (width > 0) {
+    seekBarWidth.value = width
+  }
+  showControls()
   seekPreview.value = Number((event.target as HTMLInputElement).value)
 }
 
@@ -872,6 +884,26 @@ function scheduleHide(): void {
 function showControls(): void {
   controlsShown.value = true
   scheduleHide()
+}
+
+/** A finger on the player shows hidden controls. The tap that showed them does not also play or pause. */
+function onTouchStart(): void {
+  touchShowedControls = !controlsShown.value
+  showControls()
+}
+
+function onTouchEnd(): void {
+  if (touchShowedControls) {
+    touchShowedControls = false
+    controlsShownByTouchAt = performance.now()
+  }
+}
+
+function onVideoClick(): void {
+  if (performance.now() - controlsShownByTouchAt < TOUCH_CLICK_MS) {
+    return
+  }
+  togglePlay()
 }
 
 function onPointerOver(): void {
@@ -1160,10 +1192,13 @@ onBeforeUnmount(() => {
     @mouseenter="onPointerOver"
     @mousemove="onPointerOver"
     @mouseleave="onPointerLeave"
+    @touchstart.passive="onTouchStart"
+    @touchend.passive="onTouchEnd"
+    @touchcancel.passive="onTouchEnd"
   >
     <video
       ref="video"
-      @click="togglePlay"
+      @click="onVideoClick"
       @dblclick="compact || toggleFullscreen()"
       @play="paused = false; showControls()"
       @pause="onPause"
