@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { createFeedCacheFile } from '../../packages/shell/src/main/feedCacheFile'
 import {
-  createFeedCacheFile,
   createFeedService,
   FEED_MAX_AGE_MS,
   FEED_PROGRESS_INTERVAL_MS,

@@ -6,6 +6,7 @@
   "license": "AGPL-3.0-or-later",
   "exports": {
     ".": "./src/index.ts",
+    "./manifest": "./src/manifest.ts",
     "./types": "./src/types.ts"
   },
   "dependencies": {
