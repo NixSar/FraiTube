@@ -57,7 +57,7 @@ You need pnpm and Node.js 22.13 or newer. Run `pnpm install` once, then double-c
 
 ## Development
 
-FraiTube is a pnpm workspace: the app is in packages/shell, its parts are in the other folders under packages, and the tests are in tests. These commands run from the project folder:
+FraiTube is a pnpm workspace: the app is in packages/shell, its parts are in the other folders under packages, and the tests are in tests. The android folder holds the Gradle project of the Android app, for Android 11 and newer. These commands run from the project folder:
 
 - `pnpm dev` starts the app and reloads it as you change the code.
 - `pnpm typecheck` checks the types.

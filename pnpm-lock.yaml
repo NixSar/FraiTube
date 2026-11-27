@@ -203,6 +203,39 @@ importers:
         specifier: ^3.3.14
         version: 3.3.14(typescript@6.0.3)
 
+  packages/android-web:
+    devDependencies:
+      7z-wasm:
+        specifier: 1.2.0
+        version: 1.2.0
+      '@fraitube/app-api':
+        specifier: workspace:*
+        version: link:../app-api
+      '@fraitube/backup':
+        specifier: workspace:*
+        version: link:../backup
+      '@fraitube/sponsorblock':
+        specifier: workspace:*
+        version: link:../sponsorblock
+      '@fraitube/storage':
+        specifier: workspace:*
+        version: link:../storage
+      '@fraitube/subscriptions':
+        specifier: workspace:*
+        version: link:../subscriptions
+      '@fraitube/youtube':
+        specifier: workspace:*
+        version: link:../youtube
+      '@vitejs/plugin-vue':
+        specifier: ^6.0.11
+        version: 6.0.11(vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0))(vue@3.5.46(typescript@6.0.3))
+      vite:
+        specifier: ^8.3.8
+        version: 8.3.8(@types/node@24.19.2)(jiti@2.7.0)
+      vue:
+        specifier: ^3.5.46
+        version: 3.5.46(typescript@6.0.3)
+
   packages/app-api:
     devDependencies:
       vue:

@@ -11,6 +11,7 @@ export default defineConfig(
       '**/out/**',
       '**/dist/**',
       '**/release/**',
+      'android/**',
       '.project/**',
       '.pnpm-store/**',
       '.electron-cache/**'
