@@ -15,7 +15,7 @@ import { useHistoryEntries, useWatchedMenuItem, useWatchProgress } from '../hist
 import FeedFilterBar from './FeedFilterBar.vue'
 import { DEFAULT_FEED_FILTERS, feedChannels, feedFiltersQuery, filterFeed, hasActiveFilters, readFeedFilters, type FeedFilters } from './feedFilters'
 import FeedLoading from './FeedLoading.vue'
-import { feedLoadingView } from './feedLoading'
+import { failedChannelsText, feedLoadingView } from './feedLoading'
 import { useSubscriptions } from './store'
 
 /** A load that ends sooner than this, such as one served from the last fetch, shows no progress bar. */
@@ -30,6 +30,8 @@ const fetching = ref<FeedProgress>()
 const slow = ref(false)
 let slowTimer: ReturnType<typeof setTimeout> | undefined
 const error = ref('')
+/** True while the names of the channels that could not load show under their count. */
+const showFailed = ref(false)
 const now = ref(Date.now())
 const loadId = ref(0)
 const { progressOf } = useWatchProgress()
@@ -115,6 +117,7 @@ async function load(refresh: boolean): Promise<void> {
     slow.value = true
   }, LOADING_SCREEN_DELAY_MS)
   error.value = ''
+  showFailed.value = false
   try {
     const result = await window.fraitube.getFeed(refresh)
     if (id === loadId.value) {
@@ -182,7 +185,21 @@ onBeforeUnmount(() => {
       v-if="feed && !loading && feed.failedChannels.length > 0"
       class="error"
     >
-      Could not load: {{ feed.failedChannels.map((channel) => channel.name).join(', ') }}
+      {{ failedChannelsText(feed.failedChannels.length) }}
+      <button
+        type="button"
+        class="failed-toggle"
+        :aria-expanded="showFailed"
+        @click="showFailed = !showFailed"
+      >
+        {{ showFailed ? 'Hide channels' : 'Show channels' }}
+      </button>
+    </p>
+    <p
+      v-if="feed && !loading && showFailed && feed.failedChannels.length > 0"
+      class="error failed-names"
+    >
+      {{ feed.failedChannels.map((channel) => channel.name).join(', ') }}
     </p>
     <p
       v-if="subscriptions.length === 0"
@@ -281,6 +298,18 @@ onBeforeUnmount(() => {
 
 .error {
   color: #ff6b6b;
+}
+
+/* Plain underlined text in the line's color, so the line reads as one message. */
+.failed-toggle {
+  margin-left: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .no-match {

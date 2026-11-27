@@ -13,6 +13,11 @@ export interface FeedLoadingView {
   channels: LoadingChannel[]
 }
 
+/** The short line that tells how many channels' videos could not be loaded. */
+export function failedChannelsText(count: number): string {
+  return `${count} ${count === 1 ? 'channel' : 'channels'} could not load.`
+}
+
 /** The progress bar, its text and the channel icons, from the channels fetched so far. */
 export function feedLoadingView(
   channels: readonly Channel[],

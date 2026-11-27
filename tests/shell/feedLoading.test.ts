@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedLoadingView } from '../../packages/shell/src/renderer/modules/subscriptions/feedLoading'
+import { failedChannelsText, feedLoadingView } from '../../packages/shell/src/renderer/modules/subscriptions/feedLoading'
 
 const channels = [
   { id: 'UC0000000000000000000001', name: 'First', avatar: 'https://yt3.ggpht.com/first=s88' },
@@ -7,6 +7,13 @@ const channels = [
   { id: 'UC0000000000000000000003', name: 'Third', avatar: '' },
   { id: 'UC0000000000000000000004', name: 'Fourth', avatar: '' }
 ]
+
+describe('failedChannelsText', () => {
+  it('tells how many channels could not load, in one short line', () => {
+    expect(failedChannelsText(1)).toBe('1 channel could not load.')
+    expect(failedChannelsText(143)).toBe('143 channels could not load.')
+  })
+})
 
 describe('feedLoadingView', () => {
   it('starts with an empty bar and every channel greyed out', () => {
