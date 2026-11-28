@@ -40,7 +40,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - **As many windows** as you like.
 - **Import subscriptions and history** from FreeTube and NewPipe, merged with what you already have.
 - **Backups** to a single zip file.
-- On **Android**: full screen, picture-in-picture, playback with the screen off, and YouTube links from other apps open in FraiTube.
+- On **Android**: full screen, picture-in-picture, playback with the screen off, and YouTube links **shared to FraiTube** from any app. Tapped links open in it too, once allowed under "Open by default" in Android's app settings.
 
 ## Screenshots
 
