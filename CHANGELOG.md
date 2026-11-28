@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Backups are zip files. A 7z backup made by version 0.9.10 or older is restored with version 0.9.10; make a new backup after updating.
+- 7-Zip is no longer part of FraiTube. Zip files are read and written with fflate.
+
 ## 0.9.10 - 2026-11-27
 
 - Search shows videos and channels together, and suggests searches as you type.

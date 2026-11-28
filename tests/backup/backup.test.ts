@@ -7,7 +7,6 @@ import {
   backupFileName,
   checkManifest,
   createBackup,
-  loadSevenZipFromPackage,
   packArchive,
   readBackup,
   replaceDatabase,
@@ -51,21 +50,21 @@ afterEach(() => {
 
 describe('backupFileName', () => {
   it('names the backup after the local date and time', () => {
-    expect(backupFileName(new Date(2026, 10, 22, 18, 5))).toBe('FraiTube-backup-2026-11-22-1805.7z')
+    expect(backupFileName(new Date(2026, 10, 22, 18, 5))).toBe('FraiTube-backup-2026-11-22-1805.zip')
   })
 })
 
 describe('backup and restore', () => {
-  it('packs the database with its manifest into a 7z archive and reads it back', async () => {
+  it('packs the database with its manifest into a zip archive and reads it back', async () => {
     const dir = folder()
     const storage = open(join(dir, 'source.db'))
     storage.records('items').put('UChIs72whgZI9w6d6FhwGGHA', { name: 'Gamers Nexus' })
 
-    const archive = await createBackup({ db: storage.db, appVersion: '0.0.0', tempFolder: dir, loadSevenZip: loadSevenZipFromPackage, now: () => 1234 })
-    expect(Buffer.from(archive.subarray(0, 6)).toString('hex')).toBe('377abcaf271c')
+    const archive = await createBackup({ db: storage.db, appVersion: '0.0.0', tempFolder: dir, now: () => 1234 })
+    expect(Buffer.from(archive.subarray(0, 4)).toString('hex')).toBe('504b0304')
     writeFileSync(join(dir, backupFileName(new Date(1234))), archive)
 
-    const { manifest, database } = await readBackup(new Uint8Array(readFileSync(join(dir, backupFileName(new Date(1234))))), loadSevenZipFromPackage)
+    const { manifest, database } = readBackup(new Uint8Array(readFileSync(join(dir, backupFileName(new Date(1234))))))
     expect(manifest).toEqual({ format: 'fraitube-backup', version: 1, appVersion: '0.0.0', createdAt: 1234, modules: { app: 1, sync: 1 } })
 
     writeFileSync(join(dir, 'copy.db'), database)
@@ -81,11 +80,11 @@ describe('backup and restore', () => {
     other.records('local_settings').put('player.volume', 25)
     other.db.prepare("INSERT INTO sync_versions VALUES ('items', 'x', 1, ?)").run(other.computerId)
     other.db.prepare("INSERT INTO sync_read_files VALUES ('00000000-0000-4000-8000-000000000001', 'a')").run()
-    const archive = await createBackup({ db: other.db, appVersion: '0.0.0', tempFolder: dir, loadSevenZip: loadSevenZipFromPackage })
+    const archive = await createBackup({ db: other.db, appVersion: '0.0.0', tempFolder: dir })
 
     const current = open(join(dir, 'current.db'))
     current.records('local_settings').put('player.volume', 200)
-    const { database } = await readBackup(archive, loadSevenZipFromPackage)
+    const { database } = readBackup(archive)
     const restoredFile = join(dir, 'restored.db')
     await writeRestoredDatabase(restoredFile, database, {
       computerId: current.computerId,
@@ -109,10 +108,15 @@ describe('backup and restore', () => {
     expect(() => checkManifest({ ...manifest, modules: { app: 1, unknown: 7 } }, schemas)).not.toThrow()
   })
 
-  it('refuses files that are not FraiTube backups', async () => {
-    await expect(readBackup(new TextEncoder().encode('not an archive'), loadSevenZipFromPackage)).rejects.toThrow('not a FraiTube backup')
-    const other = await packArchive([{ name: 'notes.txt', data: new TextEncoder().encode('hello') }], loadSevenZipFromPackage)
-    await expect(readBackup(other, loadSevenZipFromPackage)).rejects.toThrow('not a FraiTube backup')
+  it('refuses files that are not FraiTube backups', () => {
+    expect(() => readBackup(new TextEncoder().encode('not an archive'))).toThrow('not a FraiTube backup')
+    const other = packArchive([{ name: 'notes.txt', data: new TextEncoder().encode('hello') }])
+    expect(() => readBackup(other)).toThrow('not a FraiTube backup')
+  })
+
+  it('answers a 7z backup of an older version with the version that restores it', () => {
+    const sevenZip = new Uint8Array([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0, 4, 0, 0])
+    expect(() => readBackup(sevenZip)).toThrow('Restore it with version 0.9.10')
   })
 
   it('puts the restored database in place and keeps the one it replaces', async () => {

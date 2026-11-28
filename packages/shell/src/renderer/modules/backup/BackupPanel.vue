@@ -45,7 +45,7 @@ window.fraitube.getBackupStatus().then((result) => {
 <template>
   <div class="panel">
     <p class="hint">
-      A backup holds subscriptions, history and settings in one 7z file. Restoring one replaces them and restarts FraiTube.
+      A backup holds subscriptions, history and settings in one zip file. Restoring one replaces them and restarts FraiTube.
     </p>
     <div class="buttons">
       <button

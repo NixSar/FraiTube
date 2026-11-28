@@ -10,7 +10,6 @@
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
-    "7z-wasm": "1.2.0",
     "@fraitube/app-api": "workspace:*",
     "@fraitube/backup": "workspace:*",
     "@fraitube/sponsorblock": "workspace:*",
@@ -20,5 +19,8 @@
     "@vitejs/plugin-vue": "^6.0.11",
     "vite": "^8.3.8",
     "vue": "^3.5.46"
+  },
+  "dependencies": {
+    "fflate": "0.8.2"
   }
 }

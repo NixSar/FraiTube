@@ -15,7 +15,6 @@ import type { BackupStatus } from '../shared/backupSettings'
 import { IpcChannel } from '../shared/bridge'
 import { fromAppWindow } from './appWindow'
 import { appImageFile } from './relaunch'
-import { loadSevenZip } from './sevenZip'
 
 /** Largest backup file read. */
 export const MAX_BACKUP_FILE_BYTES = 2 * 1024 * 1024 * 1024
@@ -82,7 +81,7 @@ export function registerBackupHandlers(options: BackupServiceOptions): void {
       const dialogOptions: Electron.SaveDialogOptions = {
         title: 'Save backup',
         defaultPath: `${app.getPath('documents')}/${backupFileName(new Date())}`,
-        filters: [{ name: '7z archive', extensions: ['7z'] }]
+        filters: [{ name: 'Zip archive', extensions: ['zip'] }]
       }
       const choice = window ? await dialog.showSaveDialog(window, dialogOptions) : await dialog.showSaveDialog(dialogOptions)
       if (choice.canceled || !choice.filePath) {
@@ -91,8 +90,7 @@ export function registerBackupHandlers(options: BackupServiceOptions): void {
       const archive = await createBackup({
         db: options.storage.db,
         appVersion: app.getVersion(),
-        tempFolder: app.getPath('temp'),
-        loadSevenZip
+        tempFolder: app.getPath('temp')
       })
       await writeFile(choice.filePath, archive)
       return choice.filePath
@@ -108,7 +106,8 @@ export function registerBackupHandlers(options: BackupServiceOptions): void {
       const openOptions: Electron.OpenDialogOptions = {
         title: 'Restore backup',
         properties: ['openFile'],
-        filters: [{ name: 'FraiTube backup', extensions: ['7z'] }]
+        // A 7z backup of an older version can be picked too, and is answered with how to restore it.
+        filters: [{ name: 'FraiTube backup', extensions: ['zip', '7z'] }]
       }
       const choice = window ? await dialog.showOpenDialog(window, openOptions) : await dialog.showOpenDialog(openOptions)
       const file = choice.filePaths[0]
@@ -118,7 +117,7 @@ export function registerBackupHandlers(options: BackupServiceOptions): void {
       if ((await stat(file)).size > MAX_BACKUP_FILE_BYTES) {
         throw new Error('The file is larger than 2 GB')
       }
-      const { manifest, database } = await readBackup(new Uint8Array(await readFile(file)), loadSevenZip)
+      const { manifest, database } = readBackup(new Uint8Array(await readFile(file)))
       checkManifest(manifest, options.schemas)
 
       const confirmOptions: Electron.MessageBoxOptions = {

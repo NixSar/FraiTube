@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { unpackArchive, type ArchiveFile, type LoadSevenZip } from '@fraitube/backup'
+import { unpackArchive, type ArchiveFile } from '@fraitube/backup'
 import type { HistoryEntry } from '../shared/history'
 import { NEWPIPE_DATABASE, NEWPIPE_HISTORY_SQL, NEWPIPE_YOUTUBE_SERVICE, newPipeEntries } from './historyFiles'
 
@@ -29,10 +29,10 @@ export function readNewPipeDatabase(file: string): HistoryEntry[] {
 }
 
 /** Reads the YouTube watch history of a NewPipe backup (.zip), through a temporary copy of its database. */
-export async function readNewPipeBackup(archive: Uint8Array, tempFolder: string, loadSevenZip: LoadSevenZip): Promise<HistoryEntry[]> {
+export async function readNewPipeBackup(archive: Uint8Array, tempFolder: string): Promise<HistoryEntry[]> {
   let files: ArchiveFile[]
   try {
-    files = await unpackArchive(archive, [NEWPIPE_DATABASE], loadSevenZip, 'zip')
+    files = unpackArchive(archive, [NEWPIPE_DATABASE])
   } catch {
     throw new Error('The file is not a NewPipe backup')
   }

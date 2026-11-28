@@ -204,10 +204,11 @@ importers:
         version: 3.3.14(typescript@6.0.3)
 
   packages/android-web:
+    dependencies:
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
     devDependencies:
-      7z-wasm:
-        specifier: 1.2.0
-        version: 1.2.0
       '@fraitube/app-api':
         specifier: workspace:*
         version: link:../app-api
@@ -244,12 +245,12 @@ importers:
 
   packages/backup:
     dependencies:
-      7z-wasm:
-        specifier: 1.2.0
-        version: 1.2.0
       '@fraitube/storage':
         specifier: workspace:*
         version: link:../storage
+      fflate:
+        specifier: 0.8.2
+        version: 0.8.2
 
   packages/player: {}
 
@@ -261,9 +262,6 @@ importers:
 
   packages/shell:
     devDependencies:
-      7z-wasm:
-        specifier: 1.2.0
-        version: 1.2.0
       '@fraitube/app-api':
         specifier: workspace:*
         version: link:../app-api
@@ -335,11 +333,6 @@ importers:
         version: 18.3.0
 
 packages:
-
-  7z-wasm@1.2.0:
-    resolution: {integrity: sha512-AZjtWXFleAe5nQ27JYISs70cICjO0zZr4LU45I9pXKcrhG0qiEWgq3Vjwr9JHHihFLuqgc7uSHYVn/z3vXCjdw==}
-    engines: {node: '>=8.0.0'}
-    hasBin: true
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -1427,6 +1420,9 @@ packages:
       picomatch:
         optional: true
 
+  fflate@0.8.2:
+    resolution: {integrity: sha512-cPJU47OaAoCbg0pBvzsgpTPhmhqI5eJjh/JIu8tPj5q+T7iLvW/JAYUqmE7KOB4R1ZyEhzBaIQpQpardBF5z8A==}
+
   fflate@0.8.3:
     resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
@@ -2078,10 +2074,6 @@ packages:
     resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
     engines: {node: '>= 20.19.0'}
 
-  readline-sync@1.4.10:
-    resolution: {integrity: sha512-gNva8/6UAe8QYepIQH/jQ2qn91Qj0B9sYjMBBs3QOB8F2CXcKgLxQaJRP76sWVRQt+QU+8fAkCbCvjjMFu7Ycw==}
-    engines: {node: '>= 0.8.0'}
-
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -2569,10 +2561,6 @@ packages:
     resolution: {integrity: sha512-6Cwn/U8a+OjpZp5XgqOjwy7Lk0RrGavm3I5zO7qZWO+fes20vhWMZnlUs0h/97SwjS0AsxAZrZ5bJ85XBJVWTw==}
 
 snapshots:
-
-  7z-wasm@1.2.0:
-    dependencies:
-      readline-sync: 1.4.10
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -3848,6 +3836,8 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.7
 
+  fflate@0.8.2: {}
+
   fflate@0.8.3: {}
 
   file-entry-cache@11.1.5:
@@ -4483,8 +4473,6 @@ snapshots:
       util-deprecate: 1.0.2
 
   readdirp@5.1.1: {}
-
-  readline-sync@1.4.10: {}
 
   require-directory@2.1.1: {}
 

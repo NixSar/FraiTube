@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
-import { loadSevenZipFromPackage, packArchive } from '../../packages/backup/src/index'
+import { packArchive } from '../../packages/backup/src/index'
 import {
   checkHistoryFileSize,
   historyFileFormat,
@@ -155,17 +155,17 @@ describe('readNewPipeBackup', () => {
   it('reads the database inside the backup and removes its temporary copy', async () => {
     const source = newFolder()
     const database = readFileSync(makeNewPipeDatabase(source))
-    const archive = await packArchive([{ name: NEWPIPE_DATABASE, data: database }], loadSevenZipFromPackage, 'zip')
+    const archive = packArchive([{ name: NEWPIPE_DATABASE, data: database }])
     const temp = newFolder()
-    const entries = await readNewPipeBackup(archive, temp, loadSevenZipFromPackage)
+    const entries = await readNewPipeBackup(archive, temp)
     expect(entries.map((entry) => entry.videoId)).toEqual(['l8qxFcaLSM4', 'KNVKzPHgg4M'])
     expect(readdirSync(temp)).toEqual([])
   })
 
   it('refuses a zip without a NewPipe database and a file that is not a zip', async () => {
-    const other = await packArchive([{ name: 'notes.txt', data: new TextEncoder().encode('hello') }], loadSevenZipFromPackage, 'zip')
-    await expect(readNewPipeBackup(other, newFolder(), loadSevenZipFromPackage)).rejects.toThrow('The NewPipe backup has no database')
-    await expect(readNewPipeBackup(new TextEncoder().encode('not a zip'), newFolder(), loadSevenZipFromPackage))
+    const other = packArchive([{ name: 'notes.txt', data: new TextEncoder().encode('hello') }])
+    await expect(readNewPipeBackup(other, newFolder())).rejects.toThrow('The NewPipe backup has no database')
+    await expect(readNewPipeBackup(new TextEncoder().encode('not a zip'), newFolder()))
       .rejects.toThrow('The file is not a NewPipe backup')
   })
 })

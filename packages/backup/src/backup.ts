@@ -1,19 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { backupManifest, packBackup } from './manifest'
-import type { LoadSevenZip } from './types'
 
 export * from './manifest'
-
-/** Loads the 7-Zip program from the installed 7z-wasm package, for use outside the bundled app. */
-export const loadSevenZipFromPackage: LoadSevenZip = async () => {
-  const file = createRequire(import.meta.url).resolve('7z-wasm/7zz.wasm')
-  const data = await readFile(file)
-  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-}
 
 function moduleVersions(db: DatabaseSync): Record<string, number> {
   const rows = db.prepare('SELECT module, version FROM _schema ORDER BY module').all() as { module: string; version: number }[]
@@ -25,18 +16,17 @@ export interface CreateBackupOptions {
   appVersion: string
   /** A folder for the database copy while the backup is made. */
   tempFolder: string
-  loadSevenZip: LoadSevenZip
   now?: () => number
 }
 
-/** Makes a 7z archive of a consistent copy of the database and its manifest. */
+/** Makes a zip archive of a consistent copy of the database and its manifest. */
 export async function createBackup(options: CreateBackupOptions): Promise<Uint8Array> {
   const copy = join(options.tempFolder, `backup-${randomUUID()}.db`)
   try {
     // VACUUM INTO writes a consistent copy, even while the app keeps using the database.
     options.db.prepare('VACUUM INTO ?').run(copy)
     const manifest = backupManifest(options.appVersion, moduleVersions(options.db), (options.now ?? Date.now)())
-    return await packBackup(manifest, new Uint8Array(await readFile(copy)), options.loadSevenZip)
+    return packBackup(manifest, new Uint8Array(await readFile(copy)))
   } finally {
     await rm(copy, { force: true })
   }

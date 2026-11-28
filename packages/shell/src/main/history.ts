@@ -7,7 +7,6 @@ import { isHistorySeconds, isHistoryVideo, type HistoryImportSummary } from '../
 import { fromAppWindow } from './appWindow'
 import { checkHistoryFileSize, historyFileFormat, parseFreeTubeHistory, readNewPipeBackup } from './historyImport'
 import type { HistoryStore } from './historyStore'
-import { loadSevenZip } from './sevenZip'
 
 function announceChange(): void {
   for (const window of BrowserWindow.getAllWindows()) {
@@ -93,7 +92,7 @@ export function registerHistoryHandlers(store: HistoryStore): void {
     checkHistoryFileSize((await stat(file)).size)
     const entries = format === 'freetube'
       ? parseFreeTubeHistory(await readFile(file, 'utf8'))
-      : await readNewPipeBackup(new Uint8Array(await readFile(file)), app.getPath('temp'), loadSevenZip)
+      : await readNewPipeBackup(new Uint8Array(await readFile(file)), app.getPath('temp'))
     const summary = store.import(entries, format)
     announceChange()
     return summary

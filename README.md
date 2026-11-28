@@ -29,7 +29,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - **As many windows** as you like.
 - **Import subscriptions and history** from FreeTube and NewPipe, merged with what you already have.
 - **Sync** through any shared folder, such as one kept by Syncthing, Nextcloud or Dropbox, or through **rclone** to any cloud storage it supports.
-- **Backups** to a single 7z file.
+- **Backups** to a single zip file.
 
 ## Screenshots
 
@@ -78,7 +78,7 @@ GitHub Actions then builds the Windows installer and the AppImage and publishes 
 
 ## Credits
 
-FraiTube uses youtubei.js, googlevideo and bgutils-js by LuanRT, Vue, vue-router, Electron and 7z-wasm. Skip segments come from SponsorBlock by Ajay Ramachandran and its contributors, under CC BY-NC-SA 4.0. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for every license.
+FraiTube uses youtubei.js, googlevideo and bgutils-js by LuanRT, Vue, vue-router, Electron and fflate. Skip segments come from SponsorBlock by Ajay Ramachandran and its contributors, under CC BY-NC-SA 4.0. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) for every license.
 
 ## License
 

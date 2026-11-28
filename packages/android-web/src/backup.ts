@@ -1,6 +1,4 @@
-import sevenZipWasm from '7z-wasm/7zz.wasm?url'
 import { backupFileName, backupManifest, checkManifest, packBackup, readBackup } from '@fraitube/backup/manifest'
-import type { LoadSevenZip } from '@fraitube/backup/types'
 import type { ModuleSchema, Storage } from '@fraitube/storage'
 import type { BackupStatus } from '../../shell/src/shared/backupSettings'
 import { awaitNative } from './hiddenCalls'
@@ -12,9 +10,6 @@ const KEPT_TABLES = ['local_settings']
 const CLEARED_TABLES = ['sync_versions', 'sync_read_files']
 /** The size of one piece of a file sent to the Android side. */
 const UPLOAD_PIECE_BYTES = 256 * 1024
-
-/** Loads the 7-Zip program packed with the app's pages. */
-const loadSevenZip: LoadSevenZip = async () => (await fetch(sevenZipWasm)).arrayBuffer()
 
 export interface BackupServiceOptions {
   native: AppNative
@@ -34,7 +29,7 @@ export interface BackupService {
   restore(): Promise<BackupStatus>
 }
 
-/** Backup and restore as on the desktop: the database and a manifest in one 7z file. */
+/** Backup and restore as on the desktop: the database and a manifest in one zip file. */
 export function createBackupService(options: BackupServiceOptions): BackupService {
   const { native, storage } = options
   const status: BackupStatus = { working: false }
@@ -85,9 +80,9 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       }
       const database = new Uint8Array(await (await fetch(`/_file/${copy.id}`)).arrayBuffer())
       const manifest = backupManifest(native.version(), moduleVersions(), Date.now())
-      const archive = await packBackup(manifest, database, loadSevenZip)
+      const archive = packBackup(manifest, database)
       const uploadId = upload(archive)
-      const saved = await awaitNative((callId) => native.saveFile(callId, uploadId, backupFileName(new Date()), 'application/x-7z-compressed'))
+      const saved = await awaitNative((callId) => native.saveFile(callId, uploadId, backupFileName(new Date()), 'application/zip'))
       return saved || undefined
     }),
     restore: () => guarded('restore', async () => {
@@ -95,7 +90,7 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       if (!file) {
         return undefined
       }
-      const { manifest, database } = await readBackup(new Uint8Array(await file.contents.arrayBuffer()), loadSevenZip)
+      const { manifest, database } = readBackup(new Uint8Array(await file.contents.arrayBuffer()))
       checkManifest(manifest, options.schemas)
 
       const confirmed = await awaitNative((callId) => native.confirm(
