@@ -4,6 +4,8 @@
 
 - Backups are zip files. A 7z backup made by version 0.9.10 or older is restored with version 0.9.10; make a new backup after updating.
 - 7-Zip is no longer part of FraiTube. Zip files are read and written with fflate.
+- The timeline's frame preview shows while a finger drags it, and a finger tap shows hidden player controls without pausing.
+- Android app, for Android 11 and newer: the desktop's screens sized for touch, full screen, picture-in-picture, playback with the screen off, YouTube links from other apps, and sync through a picked folder or a WebDAV address.
 
 ## 0.9.10 - 2026-11-27
 

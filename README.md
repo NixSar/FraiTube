@@ -1,16 +1,26 @@
 # FraiTube
 
-A desktop app for watching YouTube videos on Windows and Linux that **needs no account**. You create subscriptions, history, favorites and watch positions locally, they stay on your own computers and, if you want, **sync across all of them**.
+**YouTube without an account, in sync on all your devices.** FraiTube is an app for Windows, Linux and Android. Your subscriptions, history, favorites and watch positions live on your own devices and follow you from one to the next.
 
-**[Download FraiTube for Windows and Linux](https://github.com/NixSar/FraiTube/releases/latest)**
+**[Download FraiTube for Windows, Linux and Android](https://github.com/NixSar/FraiTube/releases/latest)**
 
 ![New videos from your subscriptions, with the filter bar and Continue watching in the side column](docs/screenshots/new-videos.png)
+
+## Your YouTube on every device
+
+**Pause a video on your computer and pick it up at the same second on your phone.** Subscribe to a channel on one device and find its new videos on all of them.
+
+FraiTube syncs your **subscriptions, history, watch positions, favorites, search history and settings**. The sync files go where you choose: a **shared folder** kept by Syncthing or a cloud service, a **WebDAV** address such as a Nextcloud account or a home server, or **any cloud storage through rclone**.
+
+Once that place is set, FraiTube syncs when it starts, every 5 to 60 minutes while it is open, when you close it, or manually.
+
+**No account, no sign-up and no FraiTube server.** Your data goes only to the place you chose.
 
 ## Why FraiTube
 
 FraiTube builds on what FreeTube and NewPipe made possible. Many thanks to both teams for their wonderful work, which showed that YouTube can be watched freely and privately.
 
-FraiTube adds remote syncing, so using it becomes closer to what YouTube itself offers -> the same subscriptions, history and watch positions on any Windows or Linux computer you use.
+FraiTube's focus is syncing: the same subscriptions, history and watch positions on every computer and phone you use.
 
 The options are pruned on purpose, but are not set in stone. FraiTube stays tight and gives you the best viewing experience instead of a wall of settings.
 
@@ -18,6 +28,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 
 ## Features
 
+- **Sync across all your devices** through a shared folder, WebDAV or rclone.
 - **Search and watch**, with chapters, frame previews on the timeline and **SponsorBlock** segment skipping.
 - **Subtitles** in the font, size, color and position you choose, and **volume up to 200%**.
 - The **description, channel and comments** under every video.
@@ -28,8 +39,8 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 - **Picture-in-picture** in its own always-on-top window.
 - **As many windows** as you like.
 - **Import subscriptions and history** from FreeTube and NewPipe, merged with what you already have.
-- **Sync** through any shared folder, such as one kept by Syncthing, Nextcloud or Dropbox, or through **rclone** to any cloud storage it supports.
 - **Backups** to a single zip file.
+- On **Android**: full screen, picture-in-picture, playback with the screen off, and YouTube links from other apps open in FraiTube.
 
 ## Screenshots
 
@@ -42,7 +53,7 @@ The developer uses it as their primary way to watch YouTube, so you can rest ass
 
 ## Privacy
 
-FraiTube connects to YouTube's and Google's servers to find and play videos, to the SponsorBlock server when you turn SponsorBlock on, and to GitHub to check for a newer version when it starts and on its About page; "Check for updates when FraiTube starts" in Settings turns off the check on start. While you type in the search box, the typed text goes to YouTube's suggestion service; "Suggest searches while typing" in Settings turns this off, and then nothing you type leaves FraiTube until you search. It has no account, no tracking and no usage reports. Your subscriptions, history and settings stay on your computers and in the sync folder or rclone remote you choose.
+FraiTube connects to YouTube's and Google's servers to find and play videos, to the SponsorBlock server when you turn SponsorBlock on, and to GitHub to check for a newer version when it starts and on its About page; "Check for updates when FraiTube starts" in Settings turns off the check on start. While you type in the search box, the typed text goes to YouTube's suggestion service; "Suggest searches while typing" in Settings turns this off, and then nothing you type leaves FraiTube until you search. It has no account, no tracking and no usage reports. Your subscriptions, history and settings stay on your computers and in the sync folder, WebDAV address or rclone remote you choose. The Android app does not check for updates itself.
 
 ## Download
 
@@ -50,6 +61,13 @@ Get the latest version from the [Releases page](https://github.com/NixSar/FraiTu
 
 - Windows: download `FraiTube-<version>-setup.exe`, or `FraiTube-<version>-setup-arm64.exe` for a Windows on ARM computer, and run it. The installer is not signed, so Windows SmartScreen may show "Windows protected your PC"; click "More info", then "Run anyway".
 - Linux: download `FraiTube-<version>-x86_64.AppImage`, or `FraiTube-<version>-aarch64.AppImage` for an ARM64 computer, make it executable with `chmod +x FraiTube-*.AppImage` or in its file properties, and run it.
+- Android: download `FraiTube-<version>.apk` and open it. Android asks once to allow installing apps from your browser or file manager.
+
+## Android
+
+FraiTube for Android runs on phones and tablets with Android 11 or newer. It has the same screens as the desktop app, sized for touch, and the same subscriptions, history, favorites, imports and backups. A backup made on one opens on the other.
+
+It syncs through a folder you pick on the phone or through a WebDAV address; rclone is on Windows and Linux. The WebDAV password is kept encrypted on the phone.
 
 ## Running from the source code
 
@@ -67,6 +85,7 @@ FraiTube is a pnpm workspace: the app is in packages/shell, its parts are in the
 - `pnpm package` builds the app and packs it for the system it runs on: the Windows installer on Windows, the AppImage on Linux. The files land in the release folder.
 - `pnpm test:linux` runs on Windows with WSL 2 and its Ubuntu, which needs Node.js 24 and pnpm. It copies the project into Ubuntu, runs the checks above there, makes the AppImage and starts it in a window on the Windows desktop.
 - `pnpm start:linux` runs on Windows with the same Ubuntu. It copies the project into Ubuntu, builds the app there and starts it in a window on the Windows desktop.
+- `pnpm --filter @fraitube/android-web build` builds the Android app's pages, and `./android/gradlew -p android assembleDebug` then builds the app into android/app/build/outputs/apk. This needs the Android SDK and a Java 17 or newer with its compiler. The app takes its version from package.json.
 
 Every push to main and every pull request is built and checked on Windows and Linux by GitHub Actions. To publish a release:
 
@@ -75,6 +94,8 @@ Every push to main and every pull request is built and checked on Windows and Li
 3. Push those changes to main, then push the tag `v<version>`, for example `git tag v0.9.0` and `git push origin v0.9.0`.
 
 GitHub Actions then builds the Windows installer and the AppImage and publishes them as a release, with the CHANGELOG entry as its notes. A tag that does not match both versions stops the release.
+
+The release also gets the Android app, as `FraiTube-<version>.apk`, when the repository has the signing key in its secrets: `ANDROID_KEYSTORE_BASE64` (the key store file as base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`. Without them the release holds the desktop files only.
 
 ## Credits
 
