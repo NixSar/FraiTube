@@ -31,7 +31,7 @@ import { isHistorySeconds, isHistoryVideo } from '../../shell/src/shared/history
 import { isSearchQuery, SearchHistorySettingKey, searchesKept } from '../../shell/src/shared/searchHistory'
 import { allSettingDefinitions, feedMaxAgeMs, SettingKey, shortsShown } from '../../shell/src/shared/settings'
 import { categoryModes, SponsorBlockSettingKey } from '../../shell/src/shared/sponsorBlockSettings'
-import { MAX_WEBDAV_TEXT_LENGTH, SyncSettingKey, type SyncStatus } from '../../shell/src/shared/syncSettings'
+import { CHANGED_SYNC_PLACE, MAX_WEBDAV_TEXT_LENGTH, SyncSettingKey, type SyncStatus } from '../../shell/src/shared/syncSettings'
 import type { DownloadState, UpdateState } from '../../shell/src/shared/updates'
 import { syncSchema } from '../../sync/src/engine'
 import type { BackupStatus } from '../../shell/src/shared/backupSettings'
@@ -450,6 +450,10 @@ export function createBridge(): FraiTubeBridge {
         return undefined
       }
       settingChanged.announce(SyncSettingKey.folder, settings.set(SyncSettingKey.folder, name))
+      // Two folders can share a name, so a newly picked folder always counts as a changed sync place.
+      if (settings.get(SyncSettingKey.place) !== '') {
+        settings.set(SyncSettingKey.place, CHANGED_SYNC_PLACE)
+      }
       return name
     },
     // rclone exists only on the desktop.

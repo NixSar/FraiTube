@@ -42,10 +42,10 @@ internal class SyncTransfer(private val localRoot: File, private val remote: Syn
     /** Brings the local copies of the other computers' folders in step with the remote place. */
     fun pull() {
         remote.makeFolder(listOf(ROOT))
-        for (entry in remote.list(listOf(ROOT))) {
-            if (!entry.isFolder || !COMPUTER_ID.matches(entry.name) || entry.name == ownId) {
-                continue
-            }
+        val computers = remote.list(listOf(ROOT)).filter { it.isFolder && COMPUTER_ID.matches(it.name) && it.name != ownId }
+        // A computer whose folder is gone from the remote place is no longer merged from an old local copy.
+        forgetMissing(computers.map { it.name }.toSet())
+        for (entry in computers) {
             val folder = File(localRoot, entry.name)
             if (!folder.isDirectory && !folder.mkdirs()) {
                 throw IOException("The sync folder could not be written")
@@ -78,6 +78,15 @@ internal class SyncTransfer(private val localRoot: File, private val remote: Syn
                 if (file.name !in names) {
                     file.delete()
                 }
+            }
+        }
+    }
+
+    /** Removes the local copy of every other computer that the remote place no longer lists. */
+    private fun forgetMissing(listed: Set<String>) {
+        for (folder in localRoot.listFiles().orEmpty()) {
+            if (folder.isDirectory && COMPUTER_ID.matches(folder.name) && folder.name != ownId && folder.name !in listed) {
+                folder.deleteRecursively()
             }
         }
     }

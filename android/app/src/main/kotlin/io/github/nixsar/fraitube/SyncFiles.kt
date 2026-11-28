@@ -24,6 +24,13 @@ internal class SyncFiles(context: Context, folderName: String = "sync") {
     }
 
     private fun call(op: String, path: String, arg: String): Any {
+        if (op == "clear") {
+            // The whole private sync folder is emptied, for a start with a new sync place.
+            if (root.exists() && !root.deleteRecursively()) {
+                throw IOException("The sync folder could not be emptied")
+            }
+            return ""
+        }
         val file = resolve(path)
         return when (op) {
             "mkdir" -> {

@@ -51,8 +51,8 @@ export interface AppNative extends NativeRequests {
   restoreDatabase(uploadId: string, keepTables: string, clearTables: string): string
   /**
    * One file call of the sync engine on the app's private sync folder: "mkdir", "readdir", "readFile",
-   * "writeFile" (the contents as base64), "rename" (the new path) or "rm". Answers with JSON holding
-   * the value, or the error.
+   * "writeFile" (the contents as base64), "rename" (the new path), "rm", or "clear", which empties
+   * the whole folder. Answers with JSON holding the value, or the error.
    */
   syncFile(op: string, path: string, arg: string): string
   /**

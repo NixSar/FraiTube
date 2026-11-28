@@ -233,6 +233,28 @@ class SyncTest {
     }
 
     @Test
+    fun theLocalCopyOfAComputerGoneFromTheRemotePlaceIsDropped() {
+        File(far, "FraiTube").mkdirs()
+        File(local, OTHER).mkdirs()
+        File(local, "$OTHER/$FILE_1").writeBytes(pack("old"))
+        File(local, OWN).mkdirs()
+        File(local, "$OWN/$FILE_1").writeBytes(pack("mine"))
+
+        SyncTransfer(local, DiskRemote(far), OWN).pull()
+        assertEquals(listOf(OWN), local.list()!!.sorted())
+    }
+
+    @Test
+    fun theSyncFolderIsEmptiedOnRequest() {
+        val files = SyncFiles(context, FILES_FOLDER)
+        files.run("mkdir", "FraiTube/$OWN", "")
+        files.run("writeFile", "FraiTube/$OWN/a", "AA==")
+        assertEquals("", value(files.run("clear", "", "")))
+        assertFalse(File(context.filesDir, FILES_FOLDER).exists())
+        assertEquals("", value(files.run("mkdir", "FraiTube", "")))
+    }
+
+    @Test
     fun webDavRefusesAListedNameThatWouldLeaveItsFolder() {
         val remote = WebDavRemote(server.url("/dav/files/tester/").toString(), "tester", "pass")
         val climbing = "." + "."

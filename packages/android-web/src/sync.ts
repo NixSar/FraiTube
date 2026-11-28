@@ -1,9 +1,9 @@
 import type { Storage } from '@fraitube/storage'
-import { createSyncEngine } from '../../sync/src/engine'
+import { createSyncEngine, resetSyncState } from '../../sync/src/engine'
 import { SYNC_ROOT_FOLDER } from '../../sync/src/format'
 import type { SyncResult } from '../../sync/src/types'
 import type { SettingsStore } from '../../shell/src/main/settingsStore'
-import { isSyncMode, SyncSettingKey, type SyncStatus } from '../../shell/src/shared/syncSettings'
+import { isSyncMode, syncPlace, SyncSettingKey, type SyncStatus } from '../../shell/src/shared/syncSettings'
 import { awaitNative } from './hiddenCalls'
 import type { AppNative } from './native'
 
@@ -68,6 +68,23 @@ export function createSyncService(options: SyncServiceOptions): SyncService {
       throw new Error('Enter the WebDAV address')
     }
     const details = JSON.stringify({ mode, computerId: storage.computerId, address, user: String(settings.get(SyncSettingKey.webdavUser)) })
+
+    // A changed sync place holds nothing of this phone yet, so what was sent and read is forgotten,
+    // the private sync folder is emptied, and this run sends everything there. The first sync ever
+    // only notes the place.
+    const place = syncPlace(mode, (key) => String(settings.get(key)))
+    const last = String(settings.get(SyncSettingKey.place))
+    if (place !== last) {
+      if (last !== '') {
+        resetSyncState(storage)
+        const cleared = JSON.parse(native.syncFile('clear', '', '')) as { error?: string }
+        if (cleared.error !== undefined) {
+          throw new Error(cleared.error)
+        }
+      }
+      settings.set(SyncSettingKey.place, place)
+    }
+
     await transfer('pull', details)
     try {
       return await engine.run(SYNC_ROOT_FOLDER)
