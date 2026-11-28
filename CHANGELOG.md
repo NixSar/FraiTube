@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 - 2026-11-28
 
 - Backups are zip files. A 7z backup made by version 0.9.10 or older is restored with version 0.9.10; make a new backup after updating.
 - Sync through a WebDAV address, such as a Nextcloud account or a home server, on Windows, Linux and Android. The password is kept encrypted on the device.
