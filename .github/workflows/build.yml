@@ -1,5 +1,6 @@
-# Builds and checks FraiTube on Windows and Linux, for x64 and ARM64, for every push to main and every pull request.
-# A pushed version tag such as v0.8.0 also publishes a GitHub release with the installers and the AppImages.
+# Builds and checks FraiTube on Windows and Linux, for x64 and ARM64, and builds the Android app, for every push to
+# main and every pull request. A pushed version tag such as v0.8.0 also publishes a GitHub release with the
+# installers, the AppImages and the Android app.
 name: Build
 
 on:
@@ -58,10 +59,52 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  android:
+    name: Build the Android app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @fraitube/android-web build
+      # With the signing key in the repository's secrets, the signed release app is built and kept as
+      # FraiTube-<version>.apk. Without it, as in a pull request from a fork, the test build shows that the app builds.
+      - name: Build the app
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          FRAITUBE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          FRAITUBE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          FRAITUBE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x android/gradlew
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export FRAITUBE_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
+            ./android/gradlew -p android assembleRelease
+            mkdir -p release
+            cp android/app/build/outputs/apk/release/app-release.apk "release/FraiTube-$(node -p "require('./package.json').version").apk"
+          else
+            ./android/gradlew -p android assembleDebug
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FraiTube-android
+          path: release/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
+
   release:
     name: Publish the release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -87,3 +130,5 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" assets/*-setup.exe assets/*-x86_64.AppImage --verify-tag --title "FraiTube ${{ steps.notes.outputs.version }}" --notes-file release-notes.md
           gh release upload "$GITHUB_REF_NAME" assets/*-setup-arm64.exe assets/*-aarch64.AppImage
+          # The Android app is there when the signing key is in the repository's secrets.
+          if ls assets/*.apk > /dev/null 2>&1; then gh release upload "$GITHUB_REF_NAME" assets/*.apk; fi
