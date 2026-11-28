@@ -7,5 +7,6 @@ release/
 *.log
 *.jks
 *.keystore
+*.apk
 FraiTube Linux.lnk
 FraiTube install.cmd

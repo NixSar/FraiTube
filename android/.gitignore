@@ -1,6 +1,7 @@
 .gradle/
 .kotlin/
 build/
+apk/
 local.properties
 app/src/main/assets/web/
 *.jks
