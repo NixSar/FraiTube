@@ -1,6 +1,6 @@
 /** What the About page says about the app, and where its links go. */
 export const ABOUT = {
-  description: 'A desktop YouTube app for Windows and Linux that needs no Google account.',
+  description: 'A YouTube app for Windows, Linux and Android that needs no Google account and syncs between your devices.',
   license: 'AGPL-3.0-or-later',
   licenseUrl: 'https://github.com/NixSar/FraiTube/blob/main/LICENSE',
   repositoryUrl: 'https://github.com/NixSar/FraiTube',
