@@ -1,7 +1,7 @@
 {
   "name": "fraitube",
-  "version": "1.0.1",
-  "androidVersionCode": 1000001,
+  "version": "1.0.0",
+  "androidVersionCode": 1000000,
   "description": "An app for watching YouTube videos on Windows, Linux and Android, without an account and in sync between your devices.",
   "private": true,
   "type": "module",

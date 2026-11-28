@@ -1,12 +1,12 @@
 # FraiTube
 
-**YouTube without an account, in sync on all your devices.** FraiTube is an app for Windows, Linux and Android. Your subscriptions, history, favorites and watch positions live on your own devices and follow you from one to the next.
+**FraiTube is an app for watching YouTube videos on Windows, Linux and Android, without an account and in sync on all your devices.** Your subscriptions, history, favorites and watch positions live on your own devices and follow you from one to the next.
 
 **[Download FraiTube for Windows, Linux and Android](https://github.com/NixSar/FraiTube/releases/latest)**
 
 ![New videos from your subscriptions, with the filter bar and Continue watching in the side column](docs/screenshots/new-videos.png)
 
-## Your YouTube on every device
+## Sync across your devices
 
 **Pause a video on your computer and pick it up at the same second on your phone.** Subscribe to a channel on one device and find its new videos on all of them.
 

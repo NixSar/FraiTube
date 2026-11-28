@@ -1,7 +1,7 @@
 {
   "name": "@fraitube/shell",
   "productName": "FraiTube",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "An app for watching YouTube videos on Windows, Linux and Android, without an account and in sync between your devices.",
   "author": "NixSar",
   "private": true,
