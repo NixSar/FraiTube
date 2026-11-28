@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, Menu, screen, shell, type BrowserWindowConstructorOptions, type Rectangle } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, safeStorage, screen, shell, type BrowserWindowConstructorOptions, type Rectangle } from 'electron'
 import type { WindowBounds } from '@fraitube/app-api/settings'
 import { openStorage, syncedTables, type ModuleSchema, type Storage } from '@fraitube/storage'
 import { syncSchema } from '@fraitube/sync'
@@ -25,6 +25,7 @@ import { announceFeedProgress, registerSubscriptionHandlers } from './subscripti
 import { registerSyncHandlers, type SyncService } from './sync'
 import { createSubscriptionsStore, subscriptionsSchema } from './subscriptionsStore'
 import { registerUpdateHandlers } from './updates'
+import { createWebdavPasswordStore } from './webdavPassword'
 import { DEFAULT_WINDOW_SIZE, fitWindowSize, MIN_WINDOW_SIZE } from './windowSize'
 import appIcon from '../../build/icon.png?asset'
 
@@ -210,7 +211,14 @@ void app.whenReady().then(() => {
     storage,
     settings,
     tables: syncedTables(schemas),
-    stagingFolder: join(app.getPath('userData'), 'sync-staging')
+    stagingFolder: join(app.getPath('userData'), 'sync-staging'),
+    webdavPassword: createWebdavPasswordStore(join(app.getPath('userData'), 'webdav-password.bin'), {
+      // On Linux without a keyring Electron would only disguise the text, which is no encryption.
+      isAvailable: () => safeStorage.isEncryptionAvailable() &&
+        (process.platform !== 'linux' || safeStorage.getSelectedStorageBackend() !== 'basic_text'),
+      encrypt: (text) => safeStorage.encryptString(text),
+      decrypt: (data) => safeStorage.decryptString(data)
+    })
   })
   registerBackupHandlers({
     storage,

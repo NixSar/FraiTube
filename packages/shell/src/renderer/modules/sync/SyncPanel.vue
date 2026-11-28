@@ -36,7 +36,7 @@ function saveText(key: string, event: Event): void {
 
 function savePassword(): void {
   error.value = ''
-  window.fraitube.setWebdavPassword?.(webdavPassword.value).then(() => {
+  window.fraitube.setWebdavPassword(webdavPassword.value).then(() => {
     passwordSaved.value = webdavPassword.value !== ''
     webdavPassword.value = ''
   }, reportError)
@@ -44,7 +44,7 @@ function savePassword(): void {
 
 // The password is kept for one address, so a changed address asks whether one is saved for it.
 watch(webdavAddress, () => {
-  window.fraitube.hasWebdavPassword?.().then((saved) => {
+  window.fraitube.hasWebdavPassword().then((saved) => {
     passwordSaved.value = saved
   }, reportError)
 }, { immediate: true })
@@ -245,7 +245,7 @@ window.fraitube.getSyncStatus().then((result) => {
         v-if="webdavAddress"
         class="hint"
       >
-        Sync files go into the folder FraiTube at that address. The password stays on this phone.
+        Sync files go into the folder FraiTube at that address. The password stays on this device.
       </p>
       <p
         v-if="webdavUnencrypted"

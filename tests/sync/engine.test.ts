@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { decodeSyncFile, MAX_OWN_FILES, syncFileName } from '../../packages/sync/src/index'
+import { decodeSyncFile, MAX_OWN_FILES, resetSyncState, syncFileName } from '../../packages/sync/src/index'
 import { cleanUp, computer, testFolder } from './helpers'
 
 afterEach(cleanUp)
@@ -28,6 +28,29 @@ describe('createSyncEngine', () => {
     const result = await b.engine.run(root)
     expect(result).toMatchObject({ sent: 0, received: 2, computers: 1, changedKeys: { items: ['one', 'two'] } })
     expect(b.storage.records('items').get('one')).toEqual({ name: 'One' })
+  })
+
+  it('sends everything again to a new place once the sync state is reset', async () => {
+    const folder = testFolder('new-place')
+    const oldPlace = join(folder, 'old')
+    const newPlace = join(folder, 'new')
+    const a = computer(folder)
+    const b = computer(folder)
+    a.storage.records('items').put('one', { name: 'One' })
+    b.storage.records('items').put('two', { name: 'Two' })
+    await a.engine.run(oldPlace)
+    await b.engine.run(oldPlace)
+    await a.engine.run(oldPlace)
+
+    // Without a reset, a new place gets only what changes from now on.
+    expect(await a.engine.run(newPlace)).toMatchObject({ sent: 0 })
+
+    resetSyncState(a.storage)
+    expect(await a.engine.run(newPlace)).toMatchObject({ sent: 2 })
+    const c = computer(folder)
+    expect(await c.engine.run(newPlace)).toMatchObject({ received: 2 })
+    expect(c.storage.records('items').get('one')).toEqual({ name: 'One' })
+    expect(c.storage.records('items').get('two')).toEqual({ name: 'Two' })
   })
 
   it('lets the newer change win on every computer', async () => {

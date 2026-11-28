@@ -88,6 +88,8 @@ export const IpcChannel = {
   chooseRcloneProgram: 'sync:choose-rclone',
   rcloneRemotes: 'sync:rclone-remotes',
   syncStatusChanged: 'sync:status-changed',
+  webdavHasPassword: 'sync:webdav-has-password',
+  webdavSetPassword: 'sync:webdav-set-password',
   backupStatus: 'backup:status',
   createBackup: 'backup:create',
   restoreBackup: 'backup:restore',
@@ -261,10 +263,10 @@ export interface FraiTubeBridge {
   onSyncStatusChanged(listener: (status: SyncStatus) => void): () => void
   /** True in the phone app. Absent on the desktop. */
   phone?: boolean
-  /** Whether a WebDAV password is saved. Only the phone app syncs through WebDAV. */
-  hasWebdavPassword?(): Promise<boolean>
-  /** Saves the WebDAV password, which is kept on the phone and never handed back; an empty text removes it. */
-  setWebdavPassword?(password: string): Promise<void>
+  /** Whether a WebDAV password is saved for the WebDAV address set now. */
+  hasWebdavPassword(): Promise<boolean>
+  /** Saves the WebDAV password for the address set now. It is kept encrypted on the device and never handed back; an empty text removes it. */
+  setWebdavPassword(password: string): Promise<void>
   getBackupStatus(): Promise<BackupStatus>
   /** Asks where to save, then writes a backup there. */
   createBackup(): Promise<BackupStatus>

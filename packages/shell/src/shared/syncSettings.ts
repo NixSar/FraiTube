@@ -7,10 +7,27 @@ export const SyncSettingKey = {
   rcloneProgram: 'sync.rcloneProgram',
   webdavAddress: 'sync.webdavAddress',
   webdavUser: 'sync.webdavUser',
-  interval: 'sync.interval'
+  interval: 'sync.interval',
+  place: 'sync.place'
 } as const
 
-/** rclone exists only in the desktop app, WebDAV only in the phone app. */
+/** Told as the last place while the sync folder was picked anew and its address is not known as a text. */
+export const CHANGED_SYNC_PLACE = 'changed'
+
+/**
+ * The place a sync mode syncs through, as one text: the folder, the rclone remote or the WebDAV
+ * address. A place that differs from the one synced with last holds nothing of this computer yet.
+ */
+export function syncPlace(mode: SyncMode, read: (key: string) => string): string {
+  switch (mode) {
+    case 'folder': return `folder ${read(SyncSettingKey.folder)}`
+    case 'rclone': return `rclone ${read(SyncSettingKey.rcloneRemote)}`
+    case 'webdav': return `webdav ${read(SyncSettingKey.webdavAddress)}`
+    default: return ''
+  }
+}
+
+/** rclone exists only in the desktop app. */
 export type SyncMode = 'off' | 'folder' | 'rclone' | 'webdav'
 
 /** Longest WebDAV address or user name accepted. */
@@ -38,7 +55,7 @@ export const syncSettings: SettingsSection = {
         { value: 'off', label: 'Off' },
         { value: 'folder', label: 'Folder' },
         { value: 'rclone', label: 'rclone', only: 'desktop' },
-        { value: 'webdav', label: 'WebDAV', only: 'phone' }
+        { value: 'webdav', label: 'WebDAV' }
       ],
       default: 'off',
       local: true
@@ -63,7 +80,9 @@ export const syncSettings: SettingsSection = {
     },
     { key: SyncSettingKey.rcloneRemote, label: 'rclone remote', type: 'text', maxLength: 200, default: '', local: true, hidden: true },
     { key: SyncSettingKey.webdavAddress, label: 'WebDAV address', type: 'text', maxLength: MAX_WEBDAV_TEXT_LENGTH, default: '', local: true, hidden: true },
-    { key: SyncSettingKey.webdavUser, label: 'WebDAV user name', type: 'text', maxLength: MAX_WEBDAV_TEXT_LENGTH, default: '', local: true, hidden: true }
+    { key: SyncSettingKey.webdavUser, label: 'WebDAV user name', type: 'text', maxLength: MAX_WEBDAV_TEXT_LENGTH, default: '', local: true, hidden: true },
+    // The place synced with last, kept by the app to notice a change of place.
+    { key: SyncSettingKey.place, label: 'Last sync place', type: 'text', maxLength: MAX_SYNC_PATH_LENGTH + 20, default: '', local: true, hidden: true }
   ]
 }
 

@@ -245,6 +245,12 @@ const bridge: FraiTubeBridge = {
   listRcloneRemotes() {
     return ipcRenderer.invoke(IpcChannel.rcloneRemotes)
   },
+  hasWebdavPassword() {
+    return ipcRenderer.invoke(IpcChannel.webdavHasPassword)
+  },
+  setWebdavPassword(password) {
+    return ipcRenderer.invoke(IpcChannel.webdavSetPassword, password)
+  },
   onSyncStatusChanged(listener) {
     const handler = (_event: IpcRendererEvent, status: SyncStatus): void => listener(status)
     ipcRenderer.on(IpcChannel.syncStatusChanged, handler)

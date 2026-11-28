@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises'
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import type { Storage } from '@fraitube/storage'
 import {
@@ -5,12 +6,15 @@ import {
   findRclone,
   isRcloneProgram,
   listRemotes,
+  resetSyncState,
   syncWithFolder,
   syncWithRclone,
+  syncWithWebdav,
   type SyncResult
 } from '@fraitube/sync'
 import { IpcChannel } from '../shared/bridge'
-import { isSyncMode, MAX_SYNC_PATH_LENGTH, SyncSettingKey, type RcloneRemotes, type SyncStatus } from '../shared/syncSettings'
+import { isSyncMode, MAX_SYNC_PATH_LENGTH, MAX_WEBDAV_TEXT_LENGTH, syncPlace, SyncSettingKey, type RcloneRemotes, type SyncStatus } from '../shared/syncSettings'
+import type { WebdavPasswordStore } from './webdavPassword'
 import { fromAppWindow } from './appWindow'
 import type { SettingsStore } from './settingsStore'
 import { afterSearch, syncBeforeQuit } from './syncTiming'
@@ -23,8 +27,10 @@ export interface SyncServiceOptions {
   settings: SettingsStore
   /** The record tables that sync. */
   tables: readonly string[]
-  /** A local folder that mirrors the rclone remote. */
+  /** A local folder that mirrors the rclone remote or the WebDAV server. */
   stagingFolder: string
+  /** Where the WebDAV password is kept, encrypted and outside the database. */
+  webdavPassword: WebdavPasswordStore
   now?: () => number
 }
 
@@ -72,8 +78,26 @@ export function registerSyncHandlers(options: SyncServiceOptions): SyncService {
     }
   }
 
+  /**
+   * A changed sync place holds nothing of this computer yet, so what was sent and read is forgotten
+   * and the next run sends everything there. The first sync ever only notes the place.
+   */
+  async function noteSyncPlace(mode: SyncStatus['mode']): Promise<void> {
+    const place = syncPlace(mode, (key) => String(settings.get(key)))
+    const last = String(settings.get(SyncSettingKey.place))
+    if (place === '' || place === last) {
+      return
+    }
+    if (last !== '') {
+      resetSyncState(storage)
+      await rm(options.stagingFolder, { recursive: true, force: true })
+    }
+    settings.set(SyncSettingKey.place, place)
+  }
+
   async function syncOnce(): Promise<SyncResult | undefined> {
     const mode = currentStatus().mode
+    await noteSyncPlace(mode)
     if (mode === 'folder') {
       return syncWithFolder(engine, String(settings.get(SyncSettingKey.folder)))
     }
@@ -84,6 +108,19 @@ export function registerSyncHandlers(options: SyncServiceOptions): SyncService {
         staging: options.stagingFolder,
         computerId: storage.computerId
       })
+    }
+    if (mode === 'webdav') {
+      const address = String(settings.get(SyncSettingKey.webdavAddress))
+      const user = String(settings.get(SyncSettingKey.webdavUser))
+      if (address === '') {
+        throw new Error('Enter the WebDAV address')
+      }
+      // A user name without the password saved for this very address is not sent anywhere.
+      const password = await options.webdavPassword.forAddress(address)
+      if (password === undefined && user !== '') {
+        throw new Error('Enter the WebDAV password for this address')
+      }
+      return syncWithWebdav(engine, { address, user, password: password ?? '', staging: options.stagingFolder, computerId: storage.computerId })
     }
     return undefined
   }
@@ -193,6 +230,21 @@ export function registerSyncHandlers(options: SyncServiceOptions): SyncService {
     } catch (error) {
       return { remotes: [], error: error instanceof Error ? error.message : String(error) }
     }
+  })
+
+  ipcMain.handle(IpcChannel.webdavHasPassword, async (event): Promise<boolean> => {
+    if (!fromAppWindow(event)) {
+      throw new Error('Request refused')
+    }
+    return await options.webdavPassword.forAddress(String(settings.get(SyncSettingKey.webdavAddress))) !== undefined
+  })
+
+  ipcMain.handle(IpcChannel.webdavSetPassword, async (event, password: unknown): Promise<void> => {
+    if (!fromAppWindow(event) || typeof password !== 'string' || password.length > MAX_WEBDAV_TEXT_LENGTH) {
+      throw new Error('Request refused')
+    }
+    // The password is saved for the address set now; a later change of address needs it again.
+    await options.webdavPassword.set(String(settings.get(SyncSettingKey.webdavAddress)), password)
   })
 
   // When no rclone executable is set yet and rclone is on the PATH, its full path is filled in.

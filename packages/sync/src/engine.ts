@@ -33,6 +33,15 @@ export const syncSchema: ModuleSchema = {
   }]
 }
 
+/**
+ * Forgets what was sent and read, for a sync place that holds nothing of this computer yet. The next
+ * run then sends every record and reads every file found there. Records themselves are untouched.
+ */
+export function resetSyncState(storage: Storage): void {
+  storage.db.exec('DELETE FROM sync_versions')
+  storage.db.exec('DELETE FROM sync_read_files')
+}
+
 export interface SyncEngineOptions {
   storage: Storage
   /** The record tables that sync. Changes for any other table are ignored. */
