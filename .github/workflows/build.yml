@@ -103,7 +103,9 @@ jobs:
 
   release:
     name: Publish the release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # The release waits for the Android job but does not depend on it: with a failed Android build the
+    # desktop files are still published, without the Android app.
+    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') && needs.build.result == 'success' }}
     needs: [build, android]
     runs-on: ubuntu-latest
     permissions:
