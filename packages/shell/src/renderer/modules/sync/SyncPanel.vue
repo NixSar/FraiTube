@@ -42,9 +42,12 @@ function savePassword(): void {
   }, reportError)
 }
 
-window.fraitube.hasWebdavPassword?.().then((saved) => {
-  passwordSaved.value = saved
-}, reportError)
+// The password is kept for one address, so a changed address asks whether one is saved for it.
+watch(webdavAddress, () => {
+  window.fraitube.hasWebdavPassword?.().then((saved) => {
+    passwordSaved.value = saved
+  }, reportError)
+}, { immediate: true })
 
 function reportError(cause: unknown): void {
   error.value = cause instanceof Error ? cause.message : String(cause)
