@@ -2,7 +2,7 @@
   "name": "@fraitube/shell",
   "productName": "FraiTube",
   "version": "1.0.1",
-  "description": "A YouTube app for Windows, Linux and Android that needs no Google account and syncs between your devices.",
+  "description": "An app for watching YouTube videos on Windows, Linux and Android, without an account and in sync between your devices.",
   "author": "NixSar",
   "private": true,
   "license": "AGPL-3.0-or-later",

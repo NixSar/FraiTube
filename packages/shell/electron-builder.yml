@@ -21,6 +21,6 @@ linux:
   target: AppImage
   executableName: fraitube
   category: AudioVideo
-  synopsis: A YouTube app that needs no Google account.
+  synopsis: An app for watching YouTube videos without an account.
 appImage:
   artifactName: ${productName}-${version}-x86_64.${ext}
