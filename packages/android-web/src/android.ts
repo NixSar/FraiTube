@@ -1,5 +1,6 @@
 import { parseVideoId } from '@fraitube/youtube/ids'
-import { PlayerSettingKey, playerSettings } from '../../shell/src/shared/playerSettings'
+import { PlayerSettingKey } from '../../shell/src/shared/playerSettings'
+import { allSettingDefinitions, SettingKey } from '../../shell/src/shared/settings'
 import './android.css'
 
 // What the Android app adds around the screens, without changing them: it tells the Android side
@@ -67,11 +68,14 @@ function openLink(text: string): void {
   }
 }
 
-/** Hides what does not apply on a phone: the setting about a second window, and the menu entry that opens one. */
+/** Settings a phone has no use for: the one about a second window, and the update check, since the app store delivers updates. */
+const HIDDEN_SETTINGS: readonly string[] = [PlayerSettingKey.pipOnLeave, SettingKey.checkUpdates]
+const hiddenLabels = new Set(allSettingDefinitions().filter((setting) => HIDDEN_SETTINGS.includes(setting.key)).map((setting) => setting.label))
+
+/** Hides what does not apply on a phone: the settings above, and the menu entry that opens a second window. */
 function hideDesktopOnlyParts(): void {
-  const pipLabel = playerSettings.settings.find((setting) => setting.key === PlayerSettingKey.pipOnLeave)?.label
   for (const row of document.querySelectorAll<HTMLElement>('label.row')) {
-    if (row.firstElementChild?.textContent === pipLabel) {
+    if (hiddenLabels.has(row.firstElementChild?.textContent ?? '')) {
       row.style.display = 'none'
     }
   }

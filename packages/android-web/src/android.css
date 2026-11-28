@@ -15,6 +15,12 @@ html.fraitube-android .past-searches {
   inset-block-start: 60px;
 }
 
+/* The app store delivers updates, so the About page shows no update check. */
+html.fraitube-android .about-page .updates,
+html.fraitube-android .about-page h2:has(+ .updates) {
+  display: none;
+}
+
 /* Things a finger taps are at least 48 pixels high and wide. */
 html.fraitube-android .player .icon-button {
   min-inline-size: 48px;
