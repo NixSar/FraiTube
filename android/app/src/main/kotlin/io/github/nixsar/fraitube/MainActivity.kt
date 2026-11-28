@@ -13,7 +13,9 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.WindowInsets
+import android.webkit.RenderProcessGoneDetail
 import android.window.OnBackInvokedDispatcher
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -46,6 +48,12 @@ class MainActivity : Activity() {
     @Volatile
     private var pendingLink: String? = null
 
+    /** When the app itself last opened another screen, in uptime milliseconds. */
+    private var openedSomethingAt = 0L
+
+    /** True once Android ended the page's process and the screen is being built anew. */
+    private var pageLost = false
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,11 +72,18 @@ class MainActivity : Activity() {
         // SponsorBlock's server is only ever asked to list segments.
         sponsorRequests = NativeRequests(userAgent, ::isSegmentsAddress, methods = setOf("GET"))
         feedFile = FeedFile(this)
+        // Files left in the cache by an import, backup or upload that never finished are removed.
+        if (savedInstanceState == null) {
+            cacheDir.listFiles()?.forEach { if (it.isFile) it.delete() }
+        }
         files = OneTimeFiles(cacheDir)
         fileChooser = FileChooser(this, files, ::deliver)
         syncPort = SyncPort(this, ::deliver)
 
-        pendingLink = linkOf(intent)
+        // The link the app was opened with is handed to the page once, not again when Android rebuilds the screen.
+        if (savedInstanceState == null) {
+            pendingLink = linkOf(intent)
+        }
 
         webView = BackgroundWebView(this)
         webView.settings.javaScriptEnabled = true
@@ -107,6 +122,13 @@ class MainActivity : Activity() {
                 }
                 return true
             }
+
+            // Android ended the process that draws the page, for lack of memory or after a crash in it.
+            // The screen is built anew; left alone, Android would close the whole app.
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                rebuildAfterPageLoss()
+                return true
+            }
         }
 
         // From Android 15 on an app draws under the status and navigation bars, so the page is kept clear of them and of the keyboard.
@@ -137,12 +159,13 @@ class MainActivity : Activity() {
         }
 
         // The playback notification's button asks through this for play or pause.
+        // Only a sender holding the app's own permission is heard, so no other app can play or pause the video.
         val filter = IntentFilter(PlaybackService.ACTION_SET_PLAYING)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(playbackReceiver, filter, RECEIVER_NOT_EXPORTED)
+            registerReceiver(playbackReceiver, filter, INTERNAL_PERMISSION, null, RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(playbackReceiver, filter)
+            registerReceiver(playbackReceiver, filter, INTERNAL_PERMISSION, null)
         }
 
         if (savedInstanceState == null) {
@@ -179,7 +202,30 @@ class MainActivity : Activity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        playerWindow.onUserLeaveHint()
+        playerWindow.onUserLeaveHint(SystemClock.uptimeMillis() - openedSomethingAt < OPENED_BY_APP_MS)
+    }
+
+    /** Every picker, permission question and outside link the app opens passes here. */
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        openedSomethingAt = SystemClock.uptimeMillis()
+        super.startActivityForResult(intent, requestCode, options)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        playerWindow.onResume()
+    }
+
+    /** Builds the screen anew after Android ended the process that draws the page. */
+    private fun rebuildAfterPageLoss() {
+        if (pageLost) {
+            return
+        }
+        pageLost = true
+        (webView.parent as? FrameLayout)?.removeView(webView)
+        webView.destroy()
+        hidden.destroy()
+        recreate()
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -226,8 +272,10 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         unregisterReceiver(playbackReceiver)
         playerWindow.release()
-        hidden.destroy()
-        webView.destroy()
+        if (!pageLost) {
+            hidden.destroy()
+            webView.destroy()
+        }
         database.close()
         super.onDestroy()
     }
@@ -316,6 +364,11 @@ class MainActivity : Activity() {
                 error.message ?: "The backup could not be restored"
             } catch (error: IllegalArgumentException) {
                 error.message ?: "The backup could not be restored"
+            } catch (error: RuntimeException) {
+                // A file made to look like a database without being a sound one.
+                "The database in this backup is damaged"
+            } finally {
+                restored.delete()
             }
         }
 
@@ -333,12 +386,13 @@ class MainActivity : Activity() {
             runOnUiThread { syncPort.chooseFolder(callId) }
         }
 
-        /** Saves the WebDAV password; an empty text removes it. Answers with an empty text, or the error. */
+        /** Saves the WebDAV password for an address; an empty password removes it. Answers with an empty text, or the error. */
         @JavascriptInterface
-        fun setSyncPassword(password: String): String = syncPort.setPassword(password)
+        fun setSyncPassword(address: String, password: String): String = syncPort.setPassword(address, password)
 
+        /** Whether a password is saved for this very address. */
         @JavascriptInterface
-        fun hasSyncPassword(): Boolean = syncPort.hasPassword()
+        fun hasSyncPassword(address: String): Boolean = syncPort.hasPassword(address)
 
         /** Copies sync files in or out of the place the phone syncs through. */
         @JavascriptInterface
@@ -372,5 +426,11 @@ class MainActivity : Activity() {
         const val SPONSOR_PATH = "/_sb/"
         const val FILE_PATH = "/_file/"
         const val START_PAGE = "https://$APP_HOST/index.html"
+
+        /** A permission only this app holds, asked of whoever sends it a play or pause wish. */
+        const val INTERNAL_PERMISSION = "io.github.nixsar.fraitube.permission.INTERNAL"
+
+        /** Leaving the app this soon after it opened another screen itself is that screen showing. */
+        const val OPENED_BY_APP_MS = 1_500L
     }
 }

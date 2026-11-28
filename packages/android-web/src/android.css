@@ -21,6 +21,13 @@ html.fraitube-android .about-page h2:has(+ .updates) {
   display: none;
 }
 
+/* A phone shows no data folder to open, so the About page leaves that part out. */
+html.fraitube-android .about-page .folder,
+html.fraitube-android .about-page p:has(+ .folder),
+html.fraitube-android .about-page h2:has(+ p + .folder) {
+  display: none;
+}
+
 /* Things a finger taps are at least 48 pixels high and wide. */
 html.fraitube-android .player .icon-button {
   min-inline-size: 48px;

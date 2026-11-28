@@ -19,6 +19,8 @@ import org.json.JSONObject
  */
 internal class HiddenPage(private val context: Context, userAgent: String) {
     private class Task(val kind: String, val payload: String, val done: (Boolean, String) -> Unit) {
+        /** Handed to the page with the task, and expected back with its answer. */
+        val id: String = java.util.UUID.randomUUID().toString()
         var taken = false
     }
 
@@ -100,6 +102,13 @@ internal class HiddenPage(private val context: Context, userAgent: String) {
             }
 
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
+
+            // Android ended the process that runs the page. The task in hand fails; the app's screen
+            // rebuilds everything. Left alone, Android would close the whole app.
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                current?.let { task -> main.post { finish(task, false, "The hidden page was closed by Android") } }
+                return true
+            }
         }
         return view
     }
@@ -114,13 +123,16 @@ internal class HiddenPage(private val context: Context, userAgent: String) {
                 }
                 task.taken = true
             }
-            return JSONObject().put("kind", task.kind).put("payload", task.payload).toString()
+            return JSONObject().put("id", task.id).put("kind", task.kind).put("payload", task.payload).toString()
         }
 
+        /** The answer of the task with this ID. An answer that arrives after its task ended is dropped. */
         @JavascriptInterface
-        fun done(ok: Boolean, value: String) {
+        fun done(id: String, ok: Boolean, value: String) {
             val task = current ?: return
-            main.post { finish(task, ok, value) }
+            if (task.id == id) {
+                main.post { finish(task, ok, value) }
+            }
         }
 
         @JavascriptInterface

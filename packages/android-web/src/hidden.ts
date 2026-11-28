@@ -20,8 +20,10 @@ async function run(task: HiddenTask): Promise<string> {
 
 const taken = native.takeTask()
 if (taken) {
-  run(JSON.parse(taken) as HiddenTask).then(
-    (value) => native.done(true, value),
-    (cause: unknown) => native.done(false, cause instanceof Error ? cause.message : String(cause))
+  const task = JSON.parse(taken) as HiddenTask
+  // The answer carries the task's ID, so one that arrives late is not taken for the next task's.
+  run(task).then(
+    (value) => native.done(task.id, true, value),
+    (cause: unknown) => native.done(task.id, false, cause instanceof Error ? cause.message : String(cause))
   )
 }

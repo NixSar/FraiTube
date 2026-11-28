@@ -25,8 +25,30 @@ export function awaitNative(start: (callId: string) => void): Promise<string> {
   return new Promise((resolve, reject) => {
     const callId = crypto.randomUUID()
     waiting.set(callId, { resolve, reject })
-    start(callId)
+    try {
+      start(callId)
+    } catch (error) {
+      waiting.delete(callId)
+      reject(error instanceof Error ? error : new Error(String(error)))
+    }
   })
+}
+
+let openPickers = 0
+
+/** True while a picker opened with `awaitPicker` has not answered yet. */
+export function pickerOpen(): boolean {
+  return openPickers > 0
+}
+
+/** As `awaitNative`, for a call that opens one of Android's pickers over the page. */
+export async function awaitPicker(start: (callId: string) => void): Promise<string> {
+  openPickers++
+  try {
+    return await awaitNative(start)
+  } finally {
+    openPickers--
+  }
 }
 
 /** Runs a task in the hidden page, which has YouTube's address and nothing of the app in it. */

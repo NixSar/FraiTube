@@ -97,8 +97,8 @@ class SyncTest {
         put(listOf("FraiTube", OTHER, "readme.txt"), "stray")
 
         transfer.pull()
-        assertEquals("one", File(local, "$OTHER/$FILE_1").readText())
-        assertEquals("two", File(local, "$OTHER/$FILE_2").readText())
+        assertEquals("one", unpack(File(local, "$OTHER/$FILE_1")))
+        assertEquals("two", unpack(File(local, "$OTHER/$FILE_2")))
         assertEquals(listOf(FILE_1, FILE_2), File(local, OTHER).list()!!.sorted())
         assertFalse(File(local, "notes").exists())
 
@@ -111,8 +111,8 @@ class SyncTest {
 
         // The phone's own files go out, and a file it no longer has is removed there.
         File(local, OWN).mkdirs()
-        File(local, "$OWN/$FILE_1").writeText("mine one")
-        File(local, "$OWN/$FILE_2").writeText("mine two")
+        File(local, "$OWN/$FILE_1").writeBytes(pack("mine one"))
+        File(local, "$OWN/$FILE_2").writeBytes(pack("mine two"))
         transfer.push()
         assertTrue(has(listOf("FraiTube", OWN, FILE_1)))
         assertTrue(has(listOf("FraiTube", OWN, FILE_2)))
@@ -125,7 +125,7 @@ class SyncTest {
         // What came out reads back unchanged.
         val back = File(context.cacheDir, "sync-test-back")
         remote.read(listOf("FraiTube", OWN, FILE_2), back)
-        assertEquals("mine two", back.readText())
+        assertEquals("mine two", unpack(back))
         back.delete()
     }
 
@@ -133,7 +133,7 @@ class SyncTest {
     fun copiesThroughAFolder() {
         copiesInAndOut(
             DiskRemote(far),
-            { path, text -> File(far, path.joinToString("/")).writeText(text) },
+            { path, text -> File(far, path.joinToString("/")).writeBytes(pack(text)) },
             { path -> File(far, path.joinToString("/")).isFile }
         )
     }
@@ -143,7 +143,7 @@ class SyncTest {
         val remote = WebDavRemote(server.url("/dav/files/tester/").toString(), "tester", "pass word")
         copiesInAndOut(
             remote,
-            { path, text -> dav.files["/dav/files/tester/" + path.joinToString("/")] = text.toByteArray() },
+            { path, text -> dav.files["/dav/files/tester/" + path.joinToString("/")] = pack(text) },
             { path -> dav.files.containsKey("/dav/files/tester/" + path.joinToString("/")) }
         )
         // Every request carried the login.
@@ -207,6 +207,89 @@ class SyncTest {
         store.set("")
         assertFalse(store.has())
     }
+
+    @Test
+    fun aDamagedFileIsSkippedAndOtherNamesAreLeftAlone() {
+        val remote = DiskRemote(far)
+        File(far, "FraiTube/$OTHER").mkdirs()
+        File(far, "FraiTube/$OTHER/$FILE_1").writeBytes(pack("one"))
+        File(far, "FraiTube/$OTHER/$FILE_2").writeText("cut off, not a gzip file")
+        File(far, "FraiTube/$OWN").mkdirs()
+        File(far, "FraiTube/$OWN/notes.txt").writeText("not a sync file")
+        val transfer = SyncTransfer(local, remote, OWN)
+
+        transfer.pull()
+        assertEquals(listOf(FILE_1), File(local, OTHER).list()!!.sorted())
+
+        // The damaged file is repaired on the other computer and arrives on the next run.
+        File(far, "FraiTube/$OTHER/$FILE_2").writeBytes(pack("two"))
+        transfer.pull()
+        assertEquals(listOf(FILE_1, FILE_2), File(local, OTHER).list()!!.sorted())
+
+        File(local, OWN).mkdirs()
+        File(local, "$OWN/$FILE_3").writeBytes(pack("mine"))
+        transfer.push()
+        assertEquals(listOf(FILE_3, "notes.txt"), File(far, "FraiTube/$OWN").list()!!.sorted())
+    }
+
+    @Test
+    fun webDavRefusesAListedNameThatWouldLeaveItsFolder() {
+        val remote = WebDavRemote(server.url("/dav/files/tester/").toString(), "tester", "pass")
+        val climbing = "." + "."
+        for (name in listOf(climbing, ".", "a/b", "")) {
+            try {
+                remote.delete(listOf("FraiTube", OWN, name))
+                fail("The name '$name' must be refused")
+            } catch (error: IOException) {
+                assertEquals("The WebDAV server listed a name that cannot be used", error.message)
+            }
+        }
+    }
+
+    @Test
+    fun webDavListsWithDeclarationsAreRefused() {
+        val xml = """<?xml version="1.0"?>
+            <!DOCTYPE d [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;">]>
+            <D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/&b;</D:href></D:response></D:multistatus>"""
+        try {
+            WebDavRemote.parseList(xml.byteInputStream(), "/dav/")
+            fail("A list that defines its own text must be refused")
+        } catch (error: org.xmlpull.v1.XmlPullParserException) {
+            // Refused, as it must be.
+        }
+    }
+
+    @Test
+    fun addressesReadDifferentlyByDifferentReadersAreRefused() {
+        val climbing = "." + "."
+        assertTrue(isPlainAddress(java.net.URL("https://www.youtube.com/watch?v=abc")))
+        assertTrue(isPlainAddress(java.net.URL("https://sponsor.ajay.app/api/skipSegments/abcd?x=1")))
+        assertFalse(isPlainAddress(java.net.URL("https://evil.example\\x.googlevideo.com/")))
+        // Android resolves plain climbing parts when it reads an address, so the segments check sees where it really leads.
+        assertFalse(isSegmentsAddress(java.net.URL("https://sponsor.ajay.app/api/skipSegments/$climbing/$climbing/other")))
+        assertFalse(isPlainAddress(java.net.URL("https://sponsor.ajay.app/api/skipSegments/%2e%2E/other")))
+    }
+
+    @Test
+    fun thePasswordGoesOnlyToTheAddressItWasSavedFor() {
+        val secret = AddressSecret(SecretStore(context, SECRET))
+        assertNull(secret.forAddress("https://one.example/dav/"))
+        secret.set(" https://one.example/dav/ ", "pass word")
+        assertEquals("pass word", secret.forAddress("https://one.example/dav/"))
+        assertNull(secret.forAddress("https://two.example/dav/"))
+        assertNull(secret.forAddress("http://one.example/dav/"))
+        secret.set("https://one.example/dav/", "")
+        assertNull(secret.forAddress("https://one.example/dav/"))
+    }
+
+    private fun pack(text: String): ByteArray {
+        val bytes = java.io.ByteArrayOutputStream()
+        java.util.zip.GZIPOutputStream(bytes).use { it.write(text.toByteArray()) }
+        return bytes.toByteArray()
+    }
+
+    private fun unpack(file: File): String =
+        java.util.zip.GZIPInputStream(file.inputStream()).use { it.readBytes().toString(Charsets.UTF_8) }
 
     /** A remote place that is a folder on the device, for checking the copy logic by itself. */
     private class DiskRemote(private val root: File) : SyncRemote {

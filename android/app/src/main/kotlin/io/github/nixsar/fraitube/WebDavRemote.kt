@@ -1,7 +1,7 @@
 package io.github.nixsar.fraitube
 
-import android.util.Xml
 import java.io.File
+import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.URLDecoder
@@ -18,6 +18,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
+import org.xmlpull.v1.XmlPullParserFactory
 
 /**
  * A folder on a WebDAV server, such as a Nextcloud account or a home storage box. Every request
@@ -41,7 +42,13 @@ internal class WebDavRemote(address: String, user: String, password: String) : S
         if (base.pathSegments.last().isEmpty()) {
             builder.removePathSegment(base.pathSize - 1)
         }
-        path.forEach { builder.addPathSegment(it) }
+        for (name in path) {
+            // A name with a slash or made of dots would change which folder the request reaches.
+            if (!SAFE_NAME.matches(name)) {
+                throw IOException("The WebDAV server listed a name that cannot be used")
+            }
+            builder.addPathSegment(name)
+        }
         if (folder) {
             builder.addPathSegment("")
         }
@@ -72,7 +79,7 @@ internal class WebDavRemote(address: String, user: String, password: String) : S
             }
             val body = response.body ?: throw IOException("The WebDAV server sent no list")
             return try {
-                parseList(body.byteStream(), target.encodedPath)
+                parseList(LimitedStream(body.byteStream(), MAX_LIST_BYTES), target.encodedPath)
             } catch (error: XmlPullParserException) {
                 throw IOException("The WebDAV server's list could not be read")
             }
@@ -94,7 +101,7 @@ internal class WebDavRemote(address: String, user: String, password: String) : S
                 throw failure(response)
             }
             val body = response.body ?: throw IOException("The WebDAV server sent no file")
-            body.byteStream().use { source -> target.outputStream().use { source.copyTo(it) } }
+            LimitedStream(body.byteStream(), MAX_FILE_BYTES).use { source -> target.outputStream().use { source.copyTo(it) } }
         }
     }
 
@@ -123,8 +130,40 @@ internal class WebDavRemote(address: String, user: String, password: String) : S
         }
     }
 
+    /** A stream that fails once more than the allowed number of bytes has come through. */
+    private class LimitedStream(source: InputStream, private var left: Long) : FilterInputStream(source) {
+        override fun read(): Int {
+            val byte = super.read()
+            if (byte >= 0) {
+                count(1)
+            }
+            return byte
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            val read = super.read(buffer, offset, length)
+            if (read > 0) {
+                count(read.toLong())
+            }
+            return read
+        }
+
+        private fun count(bytes: Long) {
+            left -= bytes
+            if (left < 0) {
+                throw IOException("The WebDAV server sent more than FraiTube accepts")
+            }
+        }
+    }
+
     companion object {
-        private val XML = "application/xml; charset=utf-8".toMediaType()
+        /** The largest folder list read, and the largest file fetched, as the sync engine's own limit. */
+        private const val MAX_LIST_BYTES = 8L * 1024 * 1024
+        private const val MAX_FILE_BYTES = 64L * 1024 * 1024
+
+        /** Letters, digits and hyphens, with single dots between such runs: every name sync uses fits. */
+        private val SAFE_NAME = Regex("^[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*$")
+        private val XML ="application/xml; charset=utf-8".toMediaType()
         private val BINARY = "application/octet-stream".toMediaType()
         private const val DAV = "DAV:"
         private const val LIST_BODY =
@@ -141,8 +180,8 @@ internal class WebDavRemote(address: String, user: String, password: String) : S
          * servers list first, is left out.
          */
         fun parseList(xml: InputStream, folderPath: String): List<SyncRemote.Entry> {
-            val parser = Xml.newPullParser()
-            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
+            // This parser does not read document declarations, so an answer cannot define text that expands without end.
+            val parser = XmlPullParserFactory.newInstance().apply { isNamespaceAware = true }.newPullParser()
             parser.setInput(xml, null)
             val own = decodedPath(folderPath)
             val entries = ArrayList<SyncRemote.Entry>()

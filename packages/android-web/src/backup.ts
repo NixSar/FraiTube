@@ -1,7 +1,7 @@
 import { backupFileName, backupManifest, checkManifest, packBackup, readBackup } from '@fraitube/backup/manifest'
 import type { ModuleSchema, Storage } from '@fraitube/storage'
 import type { BackupStatus } from '../../shell/src/shared/backupSettings'
-import { awaitNative } from './hiddenCalls'
+import { awaitNative, awaitPicker } from './hiddenCalls'
 import { toBase64, type AppNative } from './native'
 
 /** Tables that belong to this phone and stay as they are when a backup is restored. */
@@ -78,11 +78,15 @@ export function createBackupService(options: BackupServiceOptions): BackupServic
       if (copy.id === undefined) {
         throw new Error(copy.error ?? 'The database could not be copied')
       }
-      const database = new Uint8Array(await (await fetch(`/_file/${copy.id}`)).arrayBuffer())
+      const copied = await fetch(`/_file/${copy.id}`)
+      if (!copied.ok) {
+        throw new Error('The database could not be copied')
+      }
+      const database = new Uint8Array(await copied.arrayBuffer())
       const manifest = backupManifest(native.version(), moduleVersions(), Date.now())
       const archive = packBackup(manifest, database)
       const uploadId = upload(archive)
-      const saved = await awaitNative((callId) => native.saveFile(callId, uploadId, backupFileName(new Date()), 'application/zip'))
+      const saved = await awaitPicker((callId) => native.saveFile(callId, uploadId, backupFileName(new Date()), 'application/zip'))
       return saved || undefined
     }),
     restore: () => guarded('restore', async () => {

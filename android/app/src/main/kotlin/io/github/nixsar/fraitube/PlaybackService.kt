@@ -21,6 +21,13 @@ class PlaybackService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // The service ends through a command of its own. It arrives after the command that started the
+        // service, so Android never sees a started service that did not show its notification.
+        if (intent?.getBooleanExtra(EXTRA_STOP, false) == true) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val title = intent?.getStringExtra(EXTRA_TITLE).orEmpty()
         val playing = intent?.getBooleanExtra(EXTRA_PLAYING, false) ?: false
         val notification = notification(title, playing)
@@ -76,10 +83,26 @@ class PlaybackService : Service() {
         fun show(context: Context, title: String, playing: Boolean) {
             val intent = Intent(context, PlaybackService::class.java).putExtra(EXTRA_TITLE, title).putExtra(EXTRA_PLAYING, playing)
             context.startForegroundService(intent)
+            started = true
         }
 
+        /** Ends the service, when this app started it. */
         fun stop(context: Context) {
-            context.stopService(Intent(context, PlaybackService::class.java))
+            if (!started) {
+                return
+            }
+            started = false
+            try {
+                context.startService(Intent(context, PlaybackService::class.java).putExtra(EXTRA_STOP, true))
+            } catch (error: IllegalStateException) {
+                // Android takes no command while the app is out of sight and the service is already gone.
+                context.stopService(Intent(context, PlaybackService::class.java))
+            }
         }
+
+        private const val EXTRA_STOP = "stop"
+
+        @Volatile
+        private var started = false
     }
 }

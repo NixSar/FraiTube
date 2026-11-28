@@ -1,4 +1,8 @@
 .gradle/
+.kotlin/
 build/
 local.properties
 app/src/main/assets/web/
+*.jks
+*.keystore
+keystore.properties

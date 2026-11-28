@@ -53,7 +53,8 @@ export function noteVideoTitle(videoTitle: string): void {
 /** The video a link points to, also when the link sits inside a shared text. */
 function videoIdIn(text: string): string | undefined {
   for (const candidate of text.match(/https?:\/\/\S+/g) ?? [text]) {
-    const id = parseVideoId(candidate)
+    // A link at the end of a sentence or inside brackets carries that punctuation along.
+    const id = parseVideoId(candidate.replace(/[)\]}>.,;:!?'"]+$/, ''))
     if (id) {
       return id
     }

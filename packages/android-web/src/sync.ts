@@ -16,6 +16,8 @@ export interface SyncServiceOptions {
   settings: SettingsStore
   /** The record tables that sync. */
   tables: readonly string[]
+  /** True while one of Android's pickers, opened by the app, covers the page. */
+  pickerOpen(): boolean
   /** Tells the pages that the sync status changed. */
   announceStatus(status: SyncStatus): void
   /** Tells the pages what a merge changed: the changed keys of each table. */
@@ -67,9 +69,13 @@ export function createSyncService(options: SyncServiceOptions): SyncService {
     }
     const details = JSON.stringify({ mode, computerId: storage.computerId, address, user: String(settings.get(SyncSettingKey.webdavUser)) })
     await transfer('pull', details)
-    const result = await engine.run(SYNC_ROOT_FOLDER)
-    await transfer('push', details)
-    return result
+    try {
+      return await engine.run(SYNC_ROOT_FOLDER)
+    } finally {
+      // The engine writes this phone's file and marks its changes as sent before it reads the other
+      // computers' files, so the copy out happens also when that reading fails.
+      await transfer('push', details)
+    }
   }
 
   function run(): Promise<SyncStatus> {
@@ -132,7 +138,8 @@ export function createSyncService(options: SyncServiceOptions): SyncService {
       }, CHECK_MS)
       // Leaving the app sends the changes made in it; Android may stop the app any time after.
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'hidden' && isOn()) {
+        // A picker the app opened itself also hides the page; that is no leaving.
+        if (document.visibilityState === 'hidden' && isOn() && !options.pickerOpen()) {
           void run()
         }
       })

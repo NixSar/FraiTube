@@ -11,6 +11,32 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONException
+import org.json.JSONObject
+
+/**
+ * A secret that belongs to one address, such as the WebDAV password. It is kept together with that
+ * address and handed out only for it, so a changed address never receives the old secret.
+ */
+internal class AddressSecret(private val store: SecretStore) {
+    /** Saves the secret for the address; an empty secret removes it. */
+    fun set(address: String, secret: String) {
+        store.set(if (secret.isEmpty()) "" else JSONObject().put("address", address.trim()).put("secret", secret).toString())
+    }
+
+    /** The secret saved for this very address, or null. */
+    fun forAddress(address: String): String? = try {
+        val saved = store.get()
+        if (saved.isEmpty()) {
+            null
+        } else {
+            val json = JSONObject(saved)
+            if (json.getString("address") == address.trim()) json.getString("secret") else null
+        }
+    } catch (error: JSONException) {
+        null
+    }
+}
 
 /**
  * Keeps one secret text, the WebDAV password, in the app's private files, encrypted with a key that

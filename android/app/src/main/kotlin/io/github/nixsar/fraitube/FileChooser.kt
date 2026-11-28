@@ -77,6 +77,10 @@ internal class FileChooser(
                 true to (if (request.upload != null) write(uri, request.upload) else read(uri, request))
             } catch (error: IOException) {
                 false to (error.message ?: "The file could not be read")
+            } catch (error: RuntimeException) {
+                // A storage app or a damaged file answering in a way Android does not promise.
+                request.upload?.delete()
+                false to "The file could not be read (${error.javaClass.simpleName})"
             }
             activity.runOnUiThread { deliver(request.callId, ok, value) }
         }.start()

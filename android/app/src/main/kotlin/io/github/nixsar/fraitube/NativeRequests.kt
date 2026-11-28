@@ -38,6 +38,21 @@ internal fun isSegmentsAddress(url: URL): Boolean =
     url.protocol == "https" && url.userInfo == null && url.path.startsWith("/api/skipSegments/")
 
 /**
+ * True for an address every reader takes the same way: no backslash, which some readers treat as a
+ * slash, and no path part made only of dots, plain or percent-written, which climbs to another folder.
+ */
+internal fun isPlainAddress(url: URL): Boolean {
+    val text = url.toString()
+    if (text.contains('\\') || text.any { it.code < 0x20 }) {
+        return false
+    }
+    return url.path.split('/').none { part ->
+        val plain = part.replace("%2e", ".", ignoreCase = true)
+        plain.isNotEmpty() && plain.all { it == '.' }
+    }
+}
+
+/**
  * Makes the network requests a page asks for. A page registers a request with its body and gets an
  * ID; it then fetches its own address with that ID, and the answer streams back as that fetch's body.
  * The real status and headers travel in headers of their own, since a web view answer cannot carry
@@ -58,7 +73,7 @@ internal class NativeRequests(
         val json = JSONObject(details)
         val url = URL(json.getString("url"))
         val method = json.getString("method")
-        require(allowed(url) && method in methods) { "Request refused" }
+        require(isPlainAddress(url) && allowed(url) && method in methods) { "Request refused" }
 
         val headers = mutableMapOf<String, String>()
         val given = json.optJSONObject("headers")
@@ -124,7 +139,7 @@ internal class NativeRequests(
             if (status in REDIRECTS && location != null) {
                 connection.disconnect()
                 val next = URL(url, location)
-                require(allowed(next)) { "Redirect refused" }
+                require(isPlainAddress(next) && allowed(next)) { "Redirect refused" }
                 if (status == 303 || method == "POST" && status != 307 && status != 308) {
                     method = "GET"
                     body = null

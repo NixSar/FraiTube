@@ -3,7 +3,8 @@ plugins {
 }
 
 // The app carries the project's version, read from the package.json next to the android folder.
-val projectVersion = Regex("\"version\"\\s*:\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)\"")
+// A suffix such as -beta.1 is left out of the app's version.
+val projectVersion = Regex("\"version\"\\s*:\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)[\"-]")
     .find(rootProject.file("../package.json").readText())
     ?.groupValues?.drop(1)?.map { it.toInt() }
     ?: error("package.json has no version")
@@ -41,11 +42,30 @@ android {
         }
     }
 
+    // The list of libraries that the build tools add to a signed app in a form only Google reads is
+    // left out; F-Droid does not accept an app that carries it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 }
+
+// The app's pages are built by pnpm, not by Gradle. Packing the app without them would give an app
+// that shows nothing, so the build stops and says what to run.
+val checkPages = tasks.register("checkPages") {
+    val page = layout.projectDirectory.file("src/main/assets/web/index.html").asFile
+    doLast {
+        if (!page.isFile) {
+            throw GradleException("The app's pages are missing. Run first, in the project folder: pnpm --filter @fraitube/android-web build")
+        }
+    }
+}
+tasks.named("preBuild") { dependsOn(checkPages) }
 
 dependencies {
     // WebDAV needs request methods Android's own HTTP client refuses.

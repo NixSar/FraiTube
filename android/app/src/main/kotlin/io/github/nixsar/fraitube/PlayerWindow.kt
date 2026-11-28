@@ -8,6 +8,8 @@ import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Rational
 import android.view.View
 import android.view.WindowInsets
@@ -102,17 +104,34 @@ internal class PlayerWindow(
         applyRotation()
         activity.setPictureInPictureParams(pictureInPictureParams())
 
+        main.removeCallbacks(stopService)
         if (!hasVideo) {
-            PlaybackService.stop(activity)
+            // A video that reloads has no picture for a moment. Out of sight the service could not be
+            // started again, so it ends only when no video has come back after a while.
+            main.postDelayed(stopService, STOP_DELAY_MS)
         } else {
             if (this.playing) {
                 askForNotificationsOnce()
             }
-            try {
-                PlaybackService.show(activity, title, this.playing)
-            } catch (error: IllegalStateException) {
-                // Android refuses to start the service while the app is out of sight; the next report in sight starts it.
-            }
+            showService()
+        }
+    }
+
+    private val main = Handler(Looper.getMainLooper())
+    private val stopService = Runnable { PlaybackService.stop(activity) }
+
+    private fun showService() {
+        try {
+            PlaybackService.show(activity, title, playing)
+        } catch (error: IllegalStateException) {
+            // Android refuses to start the service while the app is out of sight; it starts when the app is back in front.
+        }
+    }
+
+    /** The app is in front again: a video's service that Android refused out of sight starts now. */
+    fun onResume() {
+        if (hasVideo) {
+            showService()
         }
     }
 
@@ -128,9 +147,12 @@ internal class PlayerWindow(
     /** Shrinks the app into a small floating video. True when it did. */
     fun enterPictureInPicture(): Boolean = hasVideo && activity.enterPictureInPictureMode(pictureInPictureParams())
 
-    /** The user leaves the app: a playing video carries on in picture-in-picture. Android 12 and newer do this by themselves. */
-    fun onUserLeaveHint() {
-        if (playing && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+    /**
+     * The user leaves the app: a playing video carries on in picture-in-picture. Android 12 and newer do
+     * this by themselves. Not when the app itself just opened a picker or a link, which is no leaving.
+     */
+    fun onUserLeaveHint(openedByApp: Boolean) {
+        if (playing && !openedByApp && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             enterPictureInPicture()
         }
     }
@@ -147,6 +169,7 @@ internal class PlayerWindow(
     }
 
     fun release() {
+        main.removeCallbacks(stopService)
         PlaybackService.stop(activity)
     }
 
@@ -181,6 +204,7 @@ internal class PlayerWindow(
     }
 
     private companion object {
+        const val STOP_DELAY_MS = 5_000L
         const val NOTIFICATIONS_REQUEST = 4201
     }
 }

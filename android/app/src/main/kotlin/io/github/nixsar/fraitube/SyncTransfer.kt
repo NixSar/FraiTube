@@ -2,6 +2,7 @@ package io.github.nixsar.fraitube
 
 import java.io.File
 import java.io.IOException
+import java.util.zip.GZIPInputStream
 
 /**
  * The place the phone syncs through: a picked folder or a WebDAV server. Paths are lists of names
@@ -55,7 +56,18 @@ internal class SyncTransfer(private val localRoot: File, private val remote: Syn
                 if (!target.exists()) {
                     // Fetched under another name first, so the engine never reads half a file.
                     val part = File(folder, "$name.part")
-                    remote.read(listOf(ROOT, entry.name, name), part)
+                    try {
+                        remote.read(listOf(ROOT, entry.name, name), part)
+                    } catch (error: IOException) {
+                        // A file that cannot be read now is left for the next run; the others still sync.
+                        part.delete()
+                        continue
+                    }
+                    // A cut-off or damaged download is dropped, so the next run fetches it again.
+                    if (!unpacks(part)) {
+                        part.delete()
+                        continue
+                    }
                     if (!part.renameTo(target)) {
                         part.delete()
                         throw IOException("The sync folder could not be written")
@@ -76,7 +88,10 @@ internal class SyncTransfer(private val localRoot: File, private val remote: Syn
         val names = folder.listFiles().orEmpty().filter { it.isFile && SYNC_FILE.matches(it.name) }.map { it.name }.toSet()
         remote.makeFolder(listOf(ROOT))
         remote.makeFolder(listOf(ROOT, ownId))
-        val there = remote.list(listOf(ROOT, ownId)).filter { !it.isFolder }.map { it.name }.toSet()
+        // Only names shaped like sync files, or like one being sent, are ever touched in the remote place.
+        val there = remote.list(listOf(ROOT, ownId))
+            .filter { !it.isFolder && (SYNC_FILE.matches(it.name) || SYNC_FILE.matches(it.name.removeSuffix(".tmp"))) }
+            .map { it.name }.toSet()
         for (name in names.sorted()) {
             if (name !in there) {
                 // Sent under another name first, so no other computer ever reads half a file.
@@ -92,7 +107,31 @@ internal class SyncTransfer(private val localRoot: File, private val remote: Syn
         }
     }
 
+    /** True when the file is a whole gzip file, as every sync file is. */
+    private fun unpacks(file: File): Boolean = try {
+        GZIPInputStream(file.inputStream()).use { stream ->
+            val buffer = ByteArray(64 * 1024)
+            var total = 0L
+            while (true) {
+                val count = stream.read(buffer)
+                if (count < 0) {
+                    break
+                }
+                total += count
+                if (total > MAX_UNPACKED_BYTES) {
+                    return false
+                }
+            }
+        }
+        true
+    } catch (error: IOException) {
+        false
+    }
+
     companion object {
+        /** The largest sync file the engine reads, packed or unpacked, as on the desktop. */
+        const val MAX_UNPACKED_BYTES = 64L * 1024 * 1024
+
         /** The folder inside the sync place that holds one folder per computer, as on the desktop. */
         const val ROOT = "FraiTube"
         val COMPUTER_ID = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")

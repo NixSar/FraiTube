@@ -38,7 +38,7 @@ import type { BackupStatus } from '../../shell/src/shared/backupSettings'
 import { PlayerSettingKey } from '../../shell/src/shared/playerSettings'
 import { noteVideoTitle } from './android'
 import { createBackupService } from './backup'
-import { awaitNative, runHidden } from './hiddenCalls'
+import { awaitPicker, pickerOpen, runHidden } from './hiddenCalls'
 import { createNativeFetch } from './native'
 import { createSyncService } from './sync'
 
@@ -153,7 +153,7 @@ export function createBridge(): FraiTubeBridge {
    * when none was chosen. A NewPipe history backup's contents are the rows the statement finds in it.
    */
   async function chooseFile(kind: 'subscriptions' | 'history' | 'backup', sql = '', values: unknown[] = []): Promise<{ name: string; contents: Response } | undefined> {
-    const answer = await awaitNative((callId) => native.chooseFile(callId, kind, sql, JSON.stringify(values)))
+    const answer = await awaitPicker((callId) => native.chooseFile(callId, kind, sql, JSON.stringify(values)))
     if (!answer) {
       return undefined
     }
@@ -177,9 +177,14 @@ export function createBridge(): FraiTubeBridge {
     storage,
     settings,
     tables: syncedTables(schemas),
+    pickerOpen,
     announceStatus: syncStatusChanged.announce,
     announceChanges(changedKeys) {
       for (const key of changedKeys['settings'] ?? []) {
+        // The setting about a second window stays off on a phone, whatever value syncs in.
+        if (key === PlayerSettingKey.pipOnLeave) {
+          continue
+        }
         try {
           settingChanged.announce(key, settings.get(key))
         } catch {
@@ -440,7 +445,7 @@ export function createBridge(): FraiTubeBridge {
     getSyncStatus: async () => sync.status(),
     syncNow: () => sync.run(),
     async chooseSyncFolder() {
-      const name = await awaitNative((callId) => native.chooseSyncFolder(callId))
+      const name = await awaitPicker((callId) => native.chooseSyncFolder(callId))
       if (!name) {
         return undefined
       }
@@ -451,12 +456,13 @@ export function createBridge(): FraiTubeBridge {
     chooseRcloneProgram: async () => undefined,
     listRcloneRemotes: async () => ({ remotes: [] }),
     onSyncStatusChanged: syncStatusChanged.listen,
-    hasWebdavPassword: async () => native.hasSyncPassword(),
+    hasWebdavPassword: async () => native.hasSyncPassword(String(settings.get(SyncSettingKey.webdavAddress))),
     async setWebdavPassword(password) {
       if (typeof password !== 'string' || password.length > MAX_WEBDAV_TEXT_LENGTH) {
         refuse()
       }
-      const failure = native.setSyncPassword(password)
+      // The password is saved for the address set now; a later change of address needs it again.
+      const failure = native.setSyncPassword(String(settings.get(SyncSettingKey.webdavAddress)), password)
       if (failure) {
         throw new Error(failure)
       }

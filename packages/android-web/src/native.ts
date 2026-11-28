@@ -60,9 +60,13 @@ export interface AppNative extends NativeRequests {
    * through `fraitubeNativeResult`: the folder's name, or an empty text when none was chosen.
    */
   chooseSyncFolder(callId: string): void
-  /** Saves the WebDAV password; an empty text removes it. Answers with an empty text, or the error. */
-  setSyncPassword(password: string): string
-  hasSyncPassword(): boolean
+  /**
+   * Saves the WebDAV password for an address; an empty password removes it. The Android side keeps the
+   * password with its address and sends it only there. Answers with an empty text, or the error.
+   */
+  setSyncPassword(address: string, password: string): string
+  /** Whether a password is saved for this very address. */
+  hasSyncPassword(address: string): boolean
   /**
    * Copies sync files between the private sync folder and the place the phone syncs through: "pull"
    * brings the other computers' files in, "push" sends this phone's out. The details are JSON with the
@@ -80,6 +84,8 @@ export interface AppNative extends NativeRequests {
 
 /** A task the hidden page runs: minting a playback token, or running YouTube's player script. */
 export interface HiddenTask {
+  /** Given by the Android side and handed back with the answer. */
+  id: string
   kind: 'token' | 'eval'
   payload: string
 }
@@ -88,8 +94,8 @@ export interface HiddenTask {
 export interface HiddenNative extends NativeRequests {
   /** The task this page was loaded for, as JSON, or an empty string when there is none. */
   takeTask(): string
-  /** Hands back the task's result, or why it failed. */
-  done(ok: boolean, value: string): void
+  /** Hands back the result of the task with this ID, or why it failed. */
+  done(id: string, ok: boolean, value: string): void
 }
 
 declare global {

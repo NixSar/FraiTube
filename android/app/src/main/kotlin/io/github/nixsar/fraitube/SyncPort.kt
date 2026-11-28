@@ -20,18 +20,32 @@ internal class SyncPort(
     private val deliver: (callId: String, ok: Boolean, value: String) -> Unit
 ) {
     val files = SyncFiles(activity)
-    private val password = SecretStore(activity, "webdav")
+    private val password = AddressSecret(SecretStore(activity, "webdav"))
     private val preferences = activity.getSharedPreferences("sync", Context.MODE_PRIVATE)
     private var pendingChoice: String? = null
 
-    fun setPassword(secret: String): String = try {
-        password.set(secret)
+    /**
+     * Saves the WebDAV password for one address; an empty password removes it. The password is kept
+     * with its address and is only ever sent there. Answers with an empty text, or the error.
+     */
+    fun setPassword(address: String, secret: String): String = try {
+        password.set(address, secret)
         ""
     } catch (error: IOException) {
         error.message ?: "The password could not be saved"
+    } catch (error: RuntimeException) {
+        "The password could not be saved"
     }
 
-    fun hasPassword(): Boolean = password.has()
+    /** The saved password when it was saved for this address, else null. */
+    private fun passwordFor(address: String): String? = try {
+        password.forAddress(address)
+    } catch (error: RuntimeException) {
+        // The key store answering in a way Android does not promise.
+        null
+    }
+
+    fun hasPassword(address: String): Boolean = passwordFor(address) != null
 
     /** Opens the folder picker. Call on the main thread. The answer is the folder's name, or an empty text when none was chosen. */
     fun chooseFolder(callId: String) {
@@ -107,7 +121,14 @@ internal class SyncPort(
                         val folder = preferences.getString(FOLDER, null) ?: throw IOException("Choose a sync folder")
                         FolderRemote(activity.contentResolver, Uri.parse(folder))
                     }
-                    "webdav" -> WebDavRemote(json.getString("address"), json.getString("user"), password.get())
+                    "webdav" -> {
+                        val address = json.getString("address")
+                        val user = json.getString("user")
+                        // A user name without the password saved for this very address is not sent anywhere.
+                        val secret = passwordFor(address)
+                            ?: if (user.isEmpty()) "" else throw IOException("Enter the WebDAV password for this address")
+                        WebDavRemote(address, user, secret)
+                    }
                     else -> throw IOException("Unknown sync mode")
                 }
                 val transfer = SyncTransfer(File(files.root, SyncTransfer.ROOT), remote, json.getString("computerId"))
@@ -123,6 +144,9 @@ internal class SyncPort(
                 false to "The sync details are not valid"
             } catch (error: IllegalArgumentException) {
                 false to (error.message ?: "The sync details are not valid")
+            } catch (error: RuntimeException) {
+                // A storage app or the key store answering in a way Android does not promise.
+                false to "The sync place answered in an unexpected way (${error.javaClass.simpleName})"
             }
             activity.runOnUiThread { deliver(callId, ok, value) }
         }.start()
