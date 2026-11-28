@@ -22,6 +22,9 @@ android {
 }
 
 dependencies {
+    // WebDAV needs request methods Android's own HTTP client refuses.
+    implementation(libs.okhttp)
+    androidTestImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

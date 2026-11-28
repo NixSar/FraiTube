@@ -5,10 +5,16 @@ export const SyncSettingKey = {
   folder: 'sync.folder',
   rcloneRemote: 'sync.rcloneRemote',
   rcloneProgram: 'sync.rcloneProgram',
+  webdavAddress: 'sync.webdavAddress',
+  webdavUser: 'sync.webdavUser',
   interval: 'sync.interval'
 } as const
 
-export type SyncMode = 'off' | 'folder' | 'rclone'
+/** rclone exists only in the desktop app, WebDAV only in the phone app. */
+export type SyncMode = 'off' | 'folder' | 'rclone' | 'webdav'
+
+/** Longest WebDAV address or user name accepted. */
+export const MAX_WEBDAV_TEXT_LENGTH = 500
 
 /** Minutes between syncs the interval setting offers. */
 export const SYNC_INTERVALS = [5, 15, 30, 60]
@@ -18,7 +24,8 @@ export const MAX_SYNC_PATH_LENGTH = 1000
 
 /**
  * Sync settings. All of them belong to this computer, so they are local and never synced. The folder,
- * the rclone executable and the remote are chosen in the sync panel, so they are hidden from the form.
+ * the rclone executable and remote and the WebDAV details are set in the sync panel, so they are
+ * hidden from the form.
  */
 export const syncSettings: SettingsSection = {
   title: 'Sync',
@@ -30,7 +37,8 @@ export const syncSettings: SettingsSection = {
       options: [
         { value: 'off', label: 'Off' },
         { value: 'folder', label: 'Folder' },
-        { value: 'rclone', label: 'rclone' }
+        { value: 'rclone', label: 'rclone', only: 'desktop' },
+        { value: 'webdav', label: 'WebDAV', only: 'phone' }
       ],
       default: 'off',
       local: true
@@ -53,7 +61,9 @@ export const syncSettings: SettingsSection = {
       local: true,
       hidden: true
     },
-    { key: SyncSettingKey.rcloneRemote, label: 'rclone remote', type: 'text', maxLength: 200, default: '', local: true, hidden: true }
+    { key: SyncSettingKey.rcloneRemote, label: 'rclone remote', type: 'text', maxLength: 200, default: '', local: true, hidden: true },
+    { key: SyncSettingKey.webdavAddress, label: 'WebDAV address', type: 'text', maxLength: MAX_WEBDAV_TEXT_LENGTH, default: '', local: true, hidden: true },
+    { key: SyncSettingKey.webdavUser, label: 'WebDAV user name', type: 'text', maxLength: MAX_WEBDAV_TEXT_LENGTH, default: '', local: true, hidden: true }
   ]
 }
 
@@ -77,5 +87,5 @@ export interface RcloneRemotes {
 }
 
 export function isSyncMode(value: unknown): value is SyncMode {
-  return value === 'off' || value === 'folder' || value === 'rclone'
+  return value === 'off' || value === 'folder' || value === 'rclone' || value === 'webdav'
 }

@@ -49,6 +49,27 @@ export interface AppNative extends NativeRequests {
    * second. Answers with an empty text, or the error.
    */
   restoreDatabase(uploadId: string, keepTables: string, clearTables: string): string
+  /**
+   * One file call of the sync engine on the app's private sync folder: "mkdir", "readdir", "readFile",
+   * "writeFile" (the contents as base64), "rename" (the new path) or "rm". Answers with JSON holding
+   * the value, or the error.
+   */
+  syncFile(op: string, path: string, arg: string): string
+  /**
+   * Opens Android's folder picker for the sync folder and keeps the access to it. The answer arrives
+   * through `fraitubeNativeResult`: the folder's name, or an empty text when none was chosen.
+   */
+  chooseSyncFolder(callId: string): void
+  /** Saves the WebDAV password; an empty text removes it. Answers with an empty text, or the error. */
+  setSyncPassword(password: string): string
+  hasSyncPassword(): boolean
+  /**
+   * Copies sync files between the private sync folder and the place the phone syncs through: "pull"
+   * brings the other computers' files in, "push" sends this phone's out. The details are JSON with the
+   * mode ("folder" or "webdav"), the computer ID and, for WebDAV, the address and user name. The
+   * answer arrives through `fraitubeNativeResult`: an empty text, or the error.
+   */
+  syncTransfer(callId: string, direction: string, details: string): void
   /** Asks a yes or no question in a dialog. The answer arrives through `fraitubeNativeResult`: "yes", or an empty text. */
   confirm(callId: string, title: string, message: string, yesLabel: string): void
   /** Loads the app's page anew. */

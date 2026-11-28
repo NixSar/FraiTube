@@ -19,6 +19,13 @@ const panels = new Map(
 const allSections = settingsLayout(registry?.settings ?? [], new Set(panels.keys()))
 const sections = computed(() => searchSettings(allSections, search.value))
 
+const appKind = window.fraitube.phone === true ? 'phone' : 'desktop'
+
+/** A choice's options that this kind of app offers. */
+function offeredOptions(definition: Extract<SettingDefinition, { type: 'choice' }>): typeof definition.options {
+  return definition.options.filter((option) => option.only === undefined || option.only === appKind)
+}
+
 function save(definition: SettingDefinition, value: SettingValue): void {
   error.value = ''
   setSetting(definition.key, value).catch((cause: unknown) => {
@@ -205,7 +212,7 @@ onBeforeUnmount(() => {
               @change="onInput(setting, $event)"
             >
               <option
-                v-for="option in setting.options"
+                v-for="option in offeredOptions(setting)"
                 :key="option.value"
                 :value="option.value"
               >

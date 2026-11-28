@@ -21,6 +21,31 @@ const remote = computed(() => String(settings[SyncSettingKey.rcloneRemote] ?? ''
 /** The saved remote stays in the list even while rclone does not report it. */
 const remoteChoices = computed(() => (remote.value && !remotes.value.includes(remote.value) ? [remote.value, ...remotes.value] : remotes.value))
 
+const webdavAddress = computed(() => String(settings[SyncSettingKey.webdavAddress] ?? ''))
+/** True for an address whose requests travel unencrypted. */
+const webdavUnencrypted = computed(() => /^http:/i.test(webdavAddress.value.trim()))
+const webdavUser = computed(() => String(settings[SyncSettingKey.webdavUser] ?? ''))
+/** The password field's text; it is sent to be saved and never read back. */
+const webdavPassword = ref('')
+const passwordSaved = ref(false)
+
+function saveText(key: string, event: Event): void {
+  error.value = ''
+  setSetting(key, (event.target as HTMLInputElement).value.trim()).catch(reportError)
+}
+
+function savePassword(): void {
+  error.value = ''
+  window.fraitube.setWebdavPassword?.(webdavPassword.value).then(() => {
+    passwordSaved.value = webdavPassword.value !== ''
+    webdavPassword.value = ''
+  }, reportError)
+}
+
+window.fraitube.hasWebdavPassword?.().then((saved) => {
+  passwordSaved.value = saved
+}, reportError)
+
 function reportError(cause: unknown): void {
   error.value = cause instanceof Error ? cause.message : String(cause)
 }
@@ -166,6 +191,67 @@ window.fraitube.getSyncStatus().then((result) => {
       </p>
     </template>
 
+    <template v-if="mode === 'webdav'">
+      <label class="row">
+        <span>WebDAV address</span>
+        <input
+          type="url"
+          class="field"
+          placeholder="https://example.org/dav/files/name"
+          :value="webdavAddress"
+          maxlength="500"
+          autocapitalize="off"
+          spellcheck="false"
+          @change="saveText(SyncSettingKey.webdavAddress, $event)"
+        >
+      </label>
+      <label class="row">
+        <span>User name</span>
+        <input
+          type="text"
+          class="field"
+          :value="webdavUser"
+          maxlength="500"
+          autocapitalize="off"
+          autocomplete="off"
+          spellcheck="false"
+          @change="saveText(SyncSettingKey.webdavUser, $event)"
+        >
+      </label>
+      <div class="row">
+        <span>Password</span>
+        <span class="value">
+          <input
+            v-model="webdavPassword"
+            type="password"
+            class="field"
+            aria-label="Password"
+            autocomplete="off"
+            :placeholder="passwordSaved ? 'Saved' : ''"
+          >
+          <button
+            type="button"
+            :disabled="webdavPassword === '' && !passwordSaved"
+            @click="savePassword"
+          >
+            {{ webdavPassword === '' && passwordSaved ? 'Remove' : 'Save' }}
+          </button>
+        </span>
+      </div>
+      <p
+        v-if="webdavAddress"
+        class="hint"
+      >
+        Sync files go into the folder FraiTube at that address. The password stays on this phone.
+      </p>
+      <p
+        v-if="webdavUnencrypted"
+        class="hint warning"
+      >
+        This address is not encrypted. The password and the sync files can be read by others on the same network.
+      </p>
+    </template>
+
     <div class="buttons">
       <button
         type="button"
@@ -241,8 +327,15 @@ window.fraitube.getSyncStatus().then((result) => {
   margin-block: 8px;
 }
 
+.field {
+  flex: 1 1 220px;
+  min-inline-size: 0;
+  max-inline-size: 360px;
+}
+
 button,
-select {
+select,
+.field {
   padding: 6px 12px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -281,6 +374,12 @@ dd {
   margin: 0;
   opacity: 0.75;
   font-size: 0.9rem;
+}
+
+.warning {
+  margin-block-start: 4px;
+  opacity: 1;
+  color: #e0a030;
 }
 
 .error {

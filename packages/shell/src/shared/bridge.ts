@@ -259,6 +259,12 @@ export interface FraiTubeBridge {
   listRcloneRemotes(): Promise<RcloneRemotes>
   /** Calls the listener whenever the sync status changes. Returns a function that stops listening. */
   onSyncStatusChanged(listener: (status: SyncStatus) => void): () => void
+  /** True in the phone app. Absent on the desktop. */
+  phone?: boolean
+  /** Whether a WebDAV password is saved. Only the phone app syncs through WebDAV. */
+  hasWebdavPassword?(): Promise<boolean>
+  /** Saves the WebDAV password, which is kept on the phone and never handed back; an empty text removes it. */
+  setWebdavPassword?(password: string): Promise<void>
   getBackupStatus(): Promise<BackupStatus>
   /** Asks where to save, then writes a backup there. */
   createBackup(): Promise<BackupStatus>

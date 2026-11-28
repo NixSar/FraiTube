@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var files: OneTimeFiles
     private lateinit var fileChooser: FileChooser
     private lateinit var playerWindow: PlayerWindow
+    private lateinit var syncPort: SyncPort
 
     @Volatile
     private var pendingLink: String? = null
@@ -65,6 +66,7 @@ class MainActivity : Activity() {
         feedFile = FeedFile(this)
         files = OneTimeFiles(cacheDir)
         fileChooser = FileChooser(this, files, ::deliver)
+        syncPort = SyncPort(this, ::deliver)
 
         pendingLink = linkOf(intent)
 
@@ -207,7 +209,7 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (!fileChooser.onResult(requestCode, resultCode, data)) {
+        if (!fileChooser.onResult(requestCode, resultCode, data) && !syncPort.onResult(requestCode, resultCode, data)) {
             @Suppress("DEPRECATION")
             super.onActivityResult(requestCode, resultCode, data)
         }
@@ -321,6 +323,26 @@ class MainActivity : Activity() {
             val array = JSONArray(json)
             return List(array.length()) { array.getString(it) }
         }
+
+        /** One file call of the sync engine on the app's private sync folder: JSON with the value, or the error. */
+        @JavascriptInterface
+        fun syncFile(op: String, path: String, arg: String): String = syncPort.files.run(op, path, arg)
+
+        @JavascriptInterface
+        fun chooseSyncFolder(callId: String) {
+            runOnUiThread { syncPort.chooseFolder(callId) }
+        }
+
+        /** Saves the WebDAV password; an empty text removes it. Answers with an empty text, or the error. */
+        @JavascriptInterface
+        fun setSyncPassword(password: String): String = syncPort.setPassword(password)
+
+        @JavascriptInterface
+        fun hasSyncPassword(): Boolean = syncPort.hasPassword()
+
+        /** Copies sync files in or out of the place the phone syncs through. */
+        @JavascriptInterface
+        fun syncTransfer(callId: String, direction: String, details: String) = syncPort.transfer(callId, direction, details)
 
         /** Asks a yes or no question in a dialog. The answer is "yes", or an empty text. */
         @JavascriptInterface

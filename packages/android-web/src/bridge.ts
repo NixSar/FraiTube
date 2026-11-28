@@ -1,7 +1,7 @@
 import type { SettingValue } from '@fraitube/app-api/settings'
 import { hashPrefix, isServerUrl, parseSegments, segmentsUrl, SKIPPABLE_CATEGORIES } from '@fraitube/sponsorblock'
 import type { Category } from '@fraitube/sponsorblock/types'
-import { openStorage, type ModuleSchema } from '@fraitube/storage'
+import { openStorage, syncedTables, type ModuleSchema } from '@fraitube/storage'
 import { isChannel, isChannelId, parseSubscriptionsFile } from '@fraitube/subscriptions'
 import { createYoutube } from '@fraitube/youtube'
 import { isVideoId } from '@fraitube/youtube/ids'
@@ -31,17 +31,19 @@ import { isHistorySeconds, isHistoryVideo } from '../../shell/src/shared/history
 import { isSearchQuery, SearchHistorySettingKey, searchesKept } from '../../shell/src/shared/searchHistory'
 import { allSettingDefinitions, feedMaxAgeMs, SettingKey, shortsShown } from '../../shell/src/shared/settings'
 import { categoryModes, SponsorBlockSettingKey } from '../../shell/src/shared/sponsorBlockSettings'
-import type { SyncStatus } from '../../shell/src/shared/syncSettings'
+import { MAX_WEBDAV_TEXT_LENGTH, SyncSettingKey, type SyncStatus } from '../../shell/src/shared/syncSettings'
 import type { DownloadState, UpdateState } from '../../shell/src/shared/updates'
+import { syncSchema } from '../../sync/src/engine'
 import type { BackupStatus } from '../../shell/src/shared/backupSettings'
 import { PlayerSettingKey } from '../../shell/src/shared/playerSettings'
 import { noteVideoTitle } from './android'
 import { createBackupService } from './backup'
 import { awaitNative, runHidden } from './hiddenCalls'
 import { createNativeFetch } from './native'
+import { createSyncService } from './sync'
 
 /** Tables of every module the Android app has, as numbered upgrade steps. */
-const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, searchHistorySchema]
+const schemas: ModuleSchema[] = [settingsSchema, subscriptionsSchema, historySchema, favoritesSchema, searchHistorySchema, syncSchema]
 
 /** Longest time one SponsorBlock request may take. */
 const SPONSOR_TIMEOUT_MS = 10_000
@@ -168,9 +170,42 @@ export function createBridge(): FraiTubeBridge {
 
   const updateState: UpdateState = { status: 'idle', currentVersion: native.version() }
   const downloadState: DownloadState = { status: 'idle', received: 0, total: 0, action: 'show' }
-  const syncStatus: SyncStatus = { mode: 'off', running: false, sent: 0, received: 0, computers: 0, unreadable: 0 }
+
+  const syncStatusChanged = createEvent<[status: SyncStatus]>()
+  const sync = createSyncService({
+    native,
+    storage,
+    settings,
+    tables: syncedTables(schemas),
+    announceStatus: syncStatusChanged.announce,
+    announceChanges(changedKeys) {
+      for (const key of changedKeys['settings'] ?? []) {
+        try {
+          settingChanged.announce(key, settings.get(key))
+        } catch {
+          // A setting of a module this app does not have.
+        }
+      }
+      if (changedKeys['subscriptions']) {
+        feed.keepOnly(subscriptions.list())
+        subscriptionsChanged.announce()
+        fillIcons()
+      }
+      if (changedKeys['history']) {
+        historyChanged.announce()
+      }
+      if (changedKeys['favorites']) {
+        favoritesChanged.announce()
+      }
+      if (changedKeys['search_history']) {
+        searchHistoryChanged.announce()
+      }
+    }
+  })
+  sync.start()
 
   return {
+    phone: true,
     openWindow(path) {
       // The phone has one window, so the path opens in it.
       if (isAppPath(path)) {
@@ -402,12 +437,30 @@ export function createBridge(): FraiTubeBridge {
     onPipReturned: never,
     takeOverPlayback: async () => undefined,
     onHandOverRequested: never,
-    getSyncStatus: async () => syncStatus,
-    syncNow: async () => syncStatus,
-    chooseSyncFolder: async () => undefined,
+    getSyncStatus: async () => sync.status(),
+    syncNow: () => sync.run(),
+    async chooseSyncFolder() {
+      const name = await awaitNative((callId) => native.chooseSyncFolder(callId))
+      if (!name) {
+        return undefined
+      }
+      settingChanged.announce(SyncSettingKey.folder, settings.set(SyncSettingKey.folder, name))
+      return name
+    },
+    // rclone exists only on the desktop.
     chooseRcloneProgram: async () => undefined,
     listRcloneRemotes: async () => ({ remotes: [] }),
-    onSyncStatusChanged: never,
+    onSyncStatusChanged: syncStatusChanged.listen,
+    hasWebdavPassword: async () => native.hasSyncPassword(),
+    async setWebdavPassword(password) {
+      if (typeof password !== 'string' || password.length > MAX_WEBDAV_TEXT_LENGTH) {
+        refuse()
+      }
+      const failure = native.setSyncPassword(password)
+      if (failure) {
+        throw new Error(failure)
+      }
+    },
     getBackupStatus: async () => backup.status(),
     createBackup: () => backup.create(),
     restoreBackup: () => backup.restore(),

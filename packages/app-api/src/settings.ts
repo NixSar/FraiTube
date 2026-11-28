@@ -26,7 +26,8 @@ interface BaseSetting {
 
 export interface ChoiceSetting extends BaseSetting {
   type: 'choice'
-  options: { value: string; label: string }[]
+  /** An option marked `only` is offered by that kind of app alone: the desktop app, or the phone app. */
+  options: { value: string; label: string; only?: 'desktop' | 'phone' }[]
   default: string
 }
 

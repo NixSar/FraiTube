@@ -11,8 +11,11 @@ export default defineConfig({
   plugins: [vue()],
   resolve: {
     alias: {
-      // The shared packages use three Node modules; the web view has its own stand-ins for them.
+      // The shared packages use a few Node modules; the web view has its own stand-ins for them.
       'node:crypto': resolve(here, 'src/shims/crypto.ts'),
+      'node:fs/promises': resolve(here, 'src/shims/fs.ts'),
+      'node:path': resolve(here, 'src/shims/path.ts'),
+      'node:zlib': resolve(here, 'src/shims/zlib.ts'),
       'node:sqlite': resolve(here, 'src/shims/sqlite.ts'),
       'node:vm': resolve(here, 'src/shims/vm.ts')
     }
