@@ -33,6 +33,18 @@ describe('sync file format', () => {
     expect(() => decodeSyncFile(gzipSync(JSON.stringify(removedWithData)))).toThrow('Not a FraiTube sync file')
   })
 
+  it('refuses a change whose data is not JSON, and one from more than a day ahead', () => {
+    const now = 1_800_000_000_000
+    const day = 24 * 60 * 60 * 1000
+    const withChange = (change: object): Buffer => gzipSync(JSON.stringify({ ...file, changes: [{ ...file.changes[0], ...change }] }))
+
+    expect(() => decodeSyncFile(withChange({ data: '{' }), now)).toThrow('Not a FraiTube sync file')
+    expect(() => decodeSyncFile(withChange({ changedAt: now + day + 1 }), now)).toThrow('Not a FraiTube sync file')
+    expect(() => decodeSyncFile(withChange({ changedAt: Number.MAX_SAFE_INTEGER }), now)).toThrow('Not a FraiTube sync file')
+    // A clock that runs some hours ahead is still taken.
+    expect(decodeSyncFile(withChange({ changedAt: now + day }), now).changes).toHaveLength(1)
+  })
+
   it('names files so they sort in the order they were written', () => {
     const names = [syncFileName(1_700_000_000_123, 1), syncFileName(999, 0), syncFileName(1_700_000_000_123, 0)]
     expect(names.sort()).toEqual([syncFileName(999, 0), syncFileName(1_700_000_000_123, 0), syncFileName(1_700_000_000_123, 1)])

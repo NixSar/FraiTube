@@ -29,7 +29,24 @@ export function encodeSyncFile(file: SyncFile): Buffer {
   return gzipSync(JSON.stringify(file))
 }
 
-function isChange(value: unknown): value is SyncChange {
+/** How far ahead of this computer's clock a change's time may lie: room for clocks that differ. */
+const MAX_AHEAD_MS = 24 * 60 * 60 * 1000
+
+/** True for a text the record tables can read back, which is JSON. */
+function isJson(text: string): boolean {
+  try {
+    JSON.parse(text)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * A change is taken only when the stores can live with it: its data reads back as JSON, and its time
+ * is not far in the future, where it would win over every later change.
+ */
+function isChange(value: unknown, latest: number): value is SyncChange {
   if (typeof value !== 'object' || value === null) {
     return false
   }
@@ -37,12 +54,14 @@ function isChange(value: unknown): value is SyncChange {
   return typeof change.table === 'string' && isSafeName(change.table) &&
     typeof change.key === 'string' && change.key.length > 0 && change.key.length <= MAX_KEY_LENGTH &&
     typeof change.changedAt === 'number' && Number.isSafeInteger(change.changedAt) && change.changedAt > 0 &&
+    change.changedAt <= latest &&
     typeof change.removed === 'boolean' &&
-    (change.removed ? change.data === null : typeof change.data === 'string')
+    (change.removed ? change.data === null : typeof change.data === 'string' && isJson(change.data))
 }
 
 /** Reads a sync file. Throws for a file that is not a valid sync file. */
-export function decodeSyncFile(content: Buffer): SyncFile {
+export function decodeSyncFile(content: Buffer, now: number = Date.now()): SyncFile {
+  const latest = now + MAX_AHEAD_MS
   if (content.length > MAX_SYNC_FILE_BYTES) {
     throw new Error('The sync file is too large')
   }
@@ -53,7 +72,7 @@ export function decodeSyncFile(content: Buffer): SyncFile {
     !isComputerId(data.computerId) ||
     typeof data.createdAt !== 'number' ||
     !Array.isArray(data.changes) ||
-    !data.changes.every(isChange)
+    !data.changes.every((change) => isChange(change, latest))
   ) {
     throw new Error('Not a FraiTube sync file')
   }
