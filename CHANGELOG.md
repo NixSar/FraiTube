@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 - 2026-11-28
+
+- The Android app is built the same way on GitHub as on F-Droid.
+- The About page names Android and sync between your devices.
+
 ## 1.0.0 - 2026-11-28
 
 - Backups are zip files. A 7z backup made by version 0.9.10 or older is restored with version 0.9.10; make a new backup after updating.

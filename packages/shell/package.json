@@ -1,7 +1,7 @@
 {
   "name": "@fraitube/shell",
   "productName": "FraiTube",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A YouTube app for Windows, Linux and Android that needs no Google account and syncs between your devices.",
   "author": "NixSar",
   "private": true,

@@ -26,7 +26,8 @@ case "${1:-}" in
     ;;
   sign)
     version="$(package_value .version)"
-    apksigner="${ANDROID_HOME:?ANDROID_HOME is not set}/build-tools/$(package_value .androidBuild.buildTools)/apksigner"    mkdir -p "$root/release"
+    apksigner="${ANDROID_HOME:?ANDROID_HOME is not set}/build-tools/$(package_value .androidBuild.buildTools)/apksigner"
+    mkdir -p "$root/release"
     signed="$root/release/FraiTube-$version.apk"
     "$apksigner" sign \
       --ks "${FRAITUBE_KEYSTORE_FILE:?FRAITUBE_KEYSTORE_FILE is not set}" \

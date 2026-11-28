@@ -1,7 +1,7 @@
 {
   "name": "fraitube",
-  "version": "1.0.0",
-  "androidVersionCode": 1000000,
+  "version": "1.0.1",
+  "androidVersionCode": 1000001,
   "description": "A YouTube app for Windows, Linux and Android that needs no Google account and syncs between your devices.",
   "private": true,
   "type": "module",
