@@ -23,6 +23,8 @@ export default defineConfig({
   build: {
     outDir: resolve(here, '../../android/app/src/main/assets/web'),
     emptyOutDir: true,
+    // CSS is left as written, so the build needs no lightningcss, whose prebuilt binary F-Droid does not take.
+    cssMinify: false,
     rolldownOptions: {
       input: {
         index: resolve(here, 'index.html'),

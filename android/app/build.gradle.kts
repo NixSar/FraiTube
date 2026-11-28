@@ -2,12 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
 }
 
-// The app carries the project's version, read from the package.json next to the android folder.
-// A suffix such as -beta.1 is left out of the app's version.
-val projectVersion = Regex("\"version\"\\s*:\\s*\"(\\d+)\\.(\\d+)\\.(\\d+)[\"-]")
-    .find(rootProject.file("../package.json").readText())
-    ?.groupValues?.drop(1)?.map { it.toInt() }
+// The app carries the project's version and Android version number, read from the package.json next to
+// the android folder. A suffix such as -beta.1 is left out of the app's version.
+val packageJson = rootProject.file("../package.json").readText()
+val projectVersion = Regex("\"version\"\\s*:\\s*\"(\\d+\\.\\d+\\.\\d+)[\"-]")
+    .find(packageJson)?.groupValues?.get(1)
     ?: error("package.json has no version")
+val projectVersionCode = Regex("\"androidVersionCode\"\\s*:\\s*(\\d+)")
+    .find(packageJson)?.groupValues?.get(1)?.toInt()
+    ?: error("package.json has no androidVersionCode")
 
 android {
     namespace = "io.github.nixsar.fraitube"
@@ -17,28 +20,16 @@ android {
         applicationId = "io.github.nixsar.fraitube"
         minSdk = 30
         targetSdk = 37
-        // 0.9.10 becomes 9010, so every newer version has a higher number.
-        versionCode = projectVersion[0] * 1_000_000 + projectVersion[1] * 1_000 + projectVersion[2]
-        versionName = projectVersion.joinToString(".")
+        versionCode = projectVersionCode
+        versionName = projectVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // The release key is given at build time and is never in the repository. Without it the release
-    // build comes out unsigned, for a store that signs the app itself.
-    val keyStoreFile = System.getenv("FRAITUBE_KEYSTORE_FILE")
-    if (!keyStoreFile.isNullOrEmpty()) {
-        signingConfigs {
-            create("release") {
-                storeFile = file(keyStoreFile)
-                storePassword = System.getenv("FRAITUBE_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("FRAITUBE_KEY_ALIAS")
-                keyPassword = System.getenv("FRAITUBE_KEY_PASSWORD")
-            }
-        }
-        buildTypes {
-            getByName("release") {
-                signingConfig = signingConfigs.getByName("release")
-            }
+    // The release app comes out unsigned and is signed by scripts/android-release.sh. It carries no Git
+    // details, so F-Droid's build of a tag matches the published one.
+    buildTypes {
+        getByName("release") {
+            vcsInfo.include = false
         }
     }
 

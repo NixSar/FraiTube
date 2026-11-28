@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { changelogEntry, checkVersions, tagVersion, VERSIONED_FILES } from '../../scripts/release-notes.mjs'
+import { androidVersionCode, changelogEntry, checkAndroidVersionCode, checkVersions, tagVersion, VERSIONED_FILES } from '../../scripts/release-notes.mjs'
 
 const changelog = [
   '# Changelog',
@@ -49,6 +49,24 @@ describe('checkVersions', () => {
     }))
     expect(VERSIONED_FILES).toEqual(['package.json', 'packages/shell/package.json'])
     expect(() => checkVersions(versions[0]?.version ?? '', versions)).not.toThrow()
+  })
+})
+
+describe('checkAndroidVersionCode', () => {
+  it('gives every newer version a higher number', () => {
+    expect(androidVersionCode('0.9.10')).toBe(9010)
+    expect(androidVersionCode('1.0.0')).toBe(1000000)
+    expect(androidVersionCode('1.2.3-beta.1')).toBe(1002003)
+  })
+
+  it('stops the release when the number does not fit the version', () => {
+    expect(() => checkAndroidVersionCode('1.0.1', 1000001)).not.toThrow()
+    expect(() => checkAndroidVersionCode('1.0.1', 1000000)).toThrow('package.json has androidVersionCode 1000000, version 1.0.1 needs 1000001')
+  })
+
+  it('checks the number package.json states today', () => {
+    const { version, androidVersionCode: stated } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string, androidVersionCode: number }
+    expect(() => checkAndroidVersionCode(version, stated)).not.toThrow()
   })
 })
 

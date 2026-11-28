@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 // Run by the release job: node scripts/release-notes.mjs <tag> <notes file>
-// Checks that the tag matches the app's version, writes that version's CHANGELOG entry to the notes file
+// Checks that the tag matches the app's version and the Android version number, writes that version's CHANGELOG entry to the notes file
 // and prints the version.
 
 /** Files whose version a release tag must match. */
@@ -24,6 +24,20 @@ export function checkVersions(version, files) {
     if (stated !== version) {
       throw new Error(`${file} has version ${stated}, the tag has ${version}`)
     }
+  }
+}
+
+/** The Android version number a version needs: 1.2.3 needs 1002003, so every newer version has a higher number. */
+export function androidVersionCode(version) {
+  const [major = 0, minor = 0, patch = 0] = version.split(/[.-]/).slice(0, 3).map(Number)
+  return major * 1_000_000 + minor * 1_000 + patch
+}
+
+/** Stops when package.json states another Android version number than the version needs. */
+export function checkAndroidVersionCode(version, stated) {
+  const needed = androidVersionCode(version)
+  if (stated !== needed) {
+    throw new Error(`package.json has androidVersionCode ${stated}, version ${version} needs ${needed}`)
   }
 }
 
@@ -53,6 +67,7 @@ if (import.meta.main) {
     file,
     version: JSON.parse(readFileSync(join(root, file), 'utf8')).version
   })))
+  checkAndroidVersionCode(version, JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).androidVersionCode)
   writeFileSync(notesFile, `${changelogEntry(readFileSync(join(root, 'CHANGELOG.md'), 'utf8'), version)}\n`)
   console.log(version)
 }

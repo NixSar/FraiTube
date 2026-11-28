@@ -65,34 +65,39 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
+      # Node.js, Java and the build-tools come in the versions package.json names, as in F-Droid's build.
+      - name: Read the Android build versions
+        id: versions
+        run: |
+          echo "node=$(jq -r .androidBuild.node package.json)" >> "$GITHUB_OUTPUT"
+          echo "java=$(jq -r .androidBuild.java package.json)" >> "$GITHUB_OUTPUT"
+          echo "build-tools=$(jq -r .androidBuild.buildTools package.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v5
         with:
-          node-version: 24
+          node-version: ${{ steps.versions.outputs.node }}
           cache: pnpm
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 21
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @fraitube/android-web build
-      # With the signing key in the repository's secrets, the signed release app is built and kept as
-      # FraiTube-<version>.apk. Without it, as in a pull request from a fork, the test build shows that the app builds.
-      - name: Build the app
+          java-version: ${{ steps.versions.outputs.java }}
+      - run: chmod +x android/gradlew
+      - run: bash scripts/android-release.sh install
+      - run: bash scripts/android-release.sh build
+      # With the signing key in the repository's secrets, the app is signed and kept as FraiTube-<version>.apk.
+      # Without it, as in a pull request from a fork, the unsigned build shows that the app builds.
+      - name: Sign the app
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           FRAITUBE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           FRAITUBE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           FRAITUBE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          BUILD_TOOLS: ${{ steps.versions.outputs.build-tools }}
         run: |
-          chmod +x android/gradlew
           if [ -n "$KEYSTORE_BASE64" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;$BUILD_TOOLS"
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export FRAITUBE_KEYSTORE_FILE="$RUNNER_TEMP/release.jks"
-            ./android/gradlew -p android assembleRelease
-            mkdir -p release
-            cp android/app/build/outputs/apk/release/app-release.apk "release/FraiTube-$(node -p "require('./package.json').version").apk"
-          else
-            ./android/gradlew -p android assembleDebug
+            bash scripts/android-release.sh sign
           fi
       - uses: actions/upload-artifact@v4
         with:
